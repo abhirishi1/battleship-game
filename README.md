@@ -7,6 +7,18 @@ which mode it is in and why it chose that square.
 - No backend, database, accounts, analytics, external APIs, paid services, or secrets.
 - The production build is a folder of static files (`dist/`) that any static host can serve.
 
+## Screenshots
+
+Captured during the end-to-end browser test of the production build.
+
+| Victory | Defeat (remaining enemy ships revealed) |
+|---|---|
+| ![Victory screen](docs/screenshots/victory.png) | ![Defeat screen](docs/screenshots/defeat.png) |
+
+| Mobile layout | Static-only: 4 same-origin requests, no external calls |
+|---|---|
+| ![Mobile layout](docs/screenshots/mobile.png) | ![Network panel](docs/screenshots/network-static-only.png) |
+
 ## Stack
 
 - [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) (strict)
