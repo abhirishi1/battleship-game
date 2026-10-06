@@ -8,9 +8,9 @@ building and testing it. Nothing has been added to make the list look longer.
 
 How the game was tested:
 
-- **Automated tests** (`npm test`, Vitest + React Testing Library): 65 tests in 5 files. They cover
+- **Automated tests** (`npm test`, Vitest + React Testing Library): 71 tests in 6 files. They cover
   coordinates, placement rules, firing, sinking, victory, turn order and reset, the computer
-  opponent, and the React UI.
+  opponent, the scoreboard, and the React UI.
 - **Simulation:** the AI test suite plays 500 complete games against random fleets. It checks that
   no shot is repeated or off the board, that every game finishes, and that the AI is deterministic.
   A separate one-off run of 2,000 games needed 54.2 shots on average to win (minimum 27, median 55,
@@ -22,6 +22,9 @@ How the game was tested:
   Content-Security-Policy, no console errors, and no network requests beyond the site's own files.
 - **Static checks:** `npm run lint` (Oxlint) and `tsc -b` in strict mode.
 - **Manual test cases** for the project owner are in [`TEST_PLAN.md`](TEST_PLAN.md).
+- **Scoreboard (owner-requested feature):** wins per side and games played for the current visit,
+  with a confirmed reset. Its new unit and UI tests passed on their first run, and no defects were
+  found while building it, so it adds no entries below.
 
 ## Bugs found and fixed
 
@@ -91,7 +94,7 @@ correct. No defect has been found in the rules engine or the AI logic so far.
 
 - `npm ci`: clean install from the lockfile.
 - `npm run lint`: 0 warnings, 0 errors.
-- `npm test`: 5 test files, 65 tests passed.
+- `npm test`: 6 test files, 71 tests passed.
 - `npm run build`: type check plus Vite production build, written to `dist/`.
 - Production preview (`npm run preview`) in Chromium: no console errors or CSP violations. The only
   requests were for `index.html`, one JS file, one CSS file, and the favicon.
@@ -108,6 +111,7 @@ correct. No defect has been found in the rules engine or the AI logic so far.
   checkerboard colour and always follows a line of hits, so an experienced player can still
   anticipate its general strategy.
 - A game in progress is not saved; reloading the page starts a new game.
+- The scoreboard is kept in memory only (the owner's choice), so reloading the page resets it to 0.
 - Automated browser checks used Chromium only. Firefox, Safari, and real screen readers (NVDA,
   VoiceOver) have not been tested yet; they are covered by manual cases in `TEST_PLAN.md`.
 - On very narrow screens (under about 340 px), the squares shrink to their minimum size of 26 px.

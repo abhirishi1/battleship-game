@@ -22,6 +22,7 @@ describe('placement phase', () => {
     expect(state.phase).toBe('placement')
     expect(state.player.ships).toHaveLength(0)
     expect(state.winner).toBeNull()
+    expect(state.score).toEqual({ player: 0, computer: 0 })
   })
 
   it('places ships and rejects out-of-bounds or overlapping placements', () => {
@@ -163,16 +164,30 @@ describe('battle turns', () => {
   })
 })
 
+function playerWins(start: GameState): GameState {
+  let state = start
+  const targets = columnFleet().ships.flatMap((ship) => ship.cells)
+  targets.forEach((coord, i) => {
+    state = gameReducer(state, { type: 'playerFire', coord })
+    if (i < targets.length - 1) state = gameReducer(state, { type: 'computerFire' })
+  })
+  return state
+}
+
+function startBattle(state: GameState): GameState {
+  return run(
+    state,
+    { type: 'setPlayerFleet', board: stackedFleet() },
+    { type: 'startGame', computerBoard: columnFleet(), aiSeed: 1 },
+  )
+}
+
 describe('victory and reset', () => {
   it('declares the player the winner and stops the computer from firing', () => {
-    let state = battleState()
-    const targets = columnFleet().ships.flatMap((ship) => ship.cells)
-    targets.forEach((coord, i) => {
-      state = gameReducer(state, { type: 'playerFire', coord })
-      if (i < targets.length - 1) state = gameReducer(state, { type: 'computerFire' })
-    })
+    const state = playerWins(battleState())
     expect(state.phase).toBe('gameOver')
     expect(state.winner).toBe('player')
+    expect(state.score).toEqual({ player: 1, computer: 0 })
     expect(gameReducer(state, { type: 'computerFire' })).toBe(state)
     expect(gameReducer(state, { type: 'playerFire', coord: { row: 9, col: 0 } })).toBe(state)
   })
@@ -189,10 +204,32 @@ describe('victory and reset', () => {
     }
     expect(state.winner).toBe('computer')
     expect(state.phase).toBe('gameOver')
+    expect(state.score).toEqual({ player: 0, computer: 1 })
   })
 
   it('resets everything for a new game', () => {
     const played = run(battleState(), { type: 'playerFire', coord: { row: 0, col: 1 } }, { type: 'computerFire' })
     expect(gameReducer(played, { type: 'newGame' })).toEqual(createInitialState())
+  })
+
+  it('carries the score into the next game and does not count an abandoned game', () => {
+    const won = playerWins(battleState())
+    const next = gameReducer(won, { type: 'newGame' })
+    expect(next.phase).toBe('placement')
+    expect(next.score).toEqual({ player: 1, computer: 0 })
+
+    const abandoned = run(startBattle(next), { type: 'playerFire', coord: { row: 9, col: 0 } }, { type: 'newGame' })
+    expect(abandoned.score).toEqual({ player: 1, computer: 0 })
+
+    const wonAgain = playerWins(startBattle(abandoned))
+    expect(wonAgain.score).toEqual({ player: 2, computer: 0 })
+  })
+
+  it('resets the score without changing the current game', () => {
+    const next = gameReducer(playerWins(battleState()), { type: 'newGame' })
+    const mid = run(startBattle(next), { type: 'playerFire', coord: { row: 9, col: 0 } })
+    const reset = gameReducer(mid, { type: 'resetScore' })
+    expect(reset.score).toEqual({ player: 0, computer: 0 })
+    expect({ ...reset, score: mid.score }).toEqual(mid)
   })
 })

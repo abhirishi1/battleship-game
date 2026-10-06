@@ -5,6 +5,7 @@ import { enemyCellView, playerCellView } from './components/cellViews'
 import { FleetStatus } from './components/FleetStatus'
 import { describePlacement, describeShot, shipName } from './components/messages'
 import { PlacementControls } from './components/PlacementControls'
+import { Scoreboard } from './components/Scoreboard'
 import { StatusPanel } from './components/StatusPanel'
 import { checkPlacement, hasBeenShot, placeShip, randomFleet } from './game/board'
 import { FLEET } from './game/constants'
@@ -36,9 +37,10 @@ function battleAnnouncement(state: GameState): string {
   if (!last) return 'Battle started. Your turn: choose a square in the enemy waters.'
   if (state.phase === 'gameOver') {
     const result = describeShot(last)
+    const score = `Score: You ${state.score.player}, Computer ${state.score.computer}.`
     return state.winner === 'player'
-      ? `${result} You win — every enemy ship is sunk!`
-      : `${result} The computer wins — your fleet is sunk.`
+      ? `${result} You win — every enemy ship is sunk! ${score}`
+      : `${result} The computer wins — your fleet is sunk. ${score}`
   }
   if (last.shooter === 'player') return `${describeShot(last)} Computer is aiming…`
   const previous = state.history.at(-2)
@@ -172,6 +174,8 @@ export default function App({
 
       <main className="app__main">
         <StatusPanel state={state} announcement={announcement} onNewGame={newGame} newGameRef={newGameRef} />
+
+        <Scoreboard score={state.score} onReset={() => dispatch({ type: 'resetScore' })} />
 
         <div className={`arena arena--${state.phase}`}>
           <section className="panel board-panel" aria-labelledby="player-board-heading">

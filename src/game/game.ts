@@ -9,6 +9,7 @@ import {
   placeShip,
 } from './board'
 import { FLEET } from './constants'
+import { EMPTY_SCORE, recordWin, type Score } from './scoreboard'
 import type { Board, Coord, Orientation, ShipType, ShotResult } from './types'
 
 export type Phase = 'placement' | 'battle' | 'gameOver'
@@ -36,6 +37,8 @@ export interface GameState {
   ai: AiState
   winner: Side | null
   history: ShotRecord[]
+  /** Wins this visit; carried over by New game, counted once when a game is won. */
+  score: Score
 }
 
 export type GameAction =
@@ -46,8 +49,9 @@ export type GameAction =
   | { type: 'playerFire'; coord: Coord }
   | { type: 'computerFire' }
   | { type: 'newGame' }
+  | { type: 'resetScore' }
 
-export function createInitialState(): GameState {
+export function createInitialState(score: Score = EMPTY_SCORE): GameState {
   return {
     phase: 'placement',
     turn: 'player',
@@ -56,6 +60,7 @@ export function createInitialState(): GameState {
     ai: createAiState(),
     winner: null,
     history: [],
+    score,
   }
 }
 
@@ -123,6 +128,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         phase: won ? 'gameOver' : 'battle',
         winner: won ? 'player' : null,
         turn: won ? 'player' : 'computer',
+        score: won ? recordWin(state.score, 'player') : state.score,
       }
     }
 
@@ -149,10 +155,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         phase: won ? 'gameOver' : 'battle',
         winner: won ? 'computer' : null,
         turn: 'player',
+        score: won ? recordWin(state.score, 'computer') : state.score,
       }
     }
 
     case 'newGame':
-      return createInitialState()
+      return createInitialState(state.score)
+
+    case 'resetScore':
+      return { ...state, score: EMPTY_SCORE }
   }
 }

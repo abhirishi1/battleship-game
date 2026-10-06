@@ -65,6 +65,10 @@ npm ci
   fires exactly one shot back. Results are *miss*, *hit*, or *sunk* (the sunk ship's name is
   announced, as in the board game; ordinary hits do not reveal which ship was hit).
 - The first side to sink all five enemy ships wins. *New game* returns to placement at any time.
+- **Scoreboard:** counts wins for you and the computer, plus games played. A game counts once, when
+  it is won; a game abandoned with *New game* is not counted. *Reset scores* (with a confirmation
+  step) sets everything back to 0. Scores are kept in memory for the current visit only – nothing
+  is saved, so reloading the page starts again from 0.
 
 ## Architecture
 
@@ -77,15 +81,16 @@ src/
     board.ts            Placement, firing, sunk/victory detection, random fleets
     ai.ts               Computer opponent (hunt/target)
     random.ts           Seeded random numbers (same seed, same game)
+    scoreboard.ts       Win tally for the current visit
     game.ts             Game state + reducer: phases, turns, winner, reset
     *.test.ts           Unit tests
   components/           React UI
     Board.tsx           Accessible 10×10 grid (roving tabindex, arrow keys)
-    PlacementControls.tsx, StatusPanel.tsx, FleetStatus.tsx
+    PlacementControls.tsx, StatusPanel.tsx, FleetStatus.tsx, Scoreboard.tsx
     cellViews.ts        How each square looks / is described to screen readers
     messages.ts         Plain-English status text
   App.tsx               Wires the reducer to the UI and schedules the computer's reply
-  App.test.tsx          UI tests (placement, turns, duplicate shots, win, restart)
+  App.test.tsx          UI tests (placement, turns, duplicate shots, win, restart, scoreboard)
 ```
 
 **Separation of concerns**
@@ -159,7 +164,8 @@ rejects duplicates. Tests play 500 complete games against random fleets to check
 - `npm test` runs unit tests for coordinates, placement (valid, out-of-bounds, overlap), firing
   (hit, miss, duplicate, sunk), victory, reset and turn order, AI tests (random checkerboard hunt,
   switching from hunt to target, random neighbour probing, axis following, never repeating a shot
-  across 500 games, same seed replays the same game), and UI tests with React Testing Library.
+  across 500 games, same seed replays the same game), scoreboard tests (a win counts once, abandoned
+  games are not counted, reset, reload starts at 0), and UI tests with React Testing Library.
 - Manual test cases are listed in [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
 - Defects found and fixed are recorded in [`docs/BUG_REPORT.md`](docs/BUG_REPORT.md).
 

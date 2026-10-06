@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
@@ -28,6 +28,20 @@ function enemyCell(label: string) {
 async function startWithRandomFleet(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Randomize fleet' }))
   await user.click(screen.getByRole('button', { name: 'Start battle' }))
+}
+
+async function winGame(user: ReturnType<typeof userEvent.setup>) {
+  const labels = columnFleet()
+    .ships.flatMap((ship) => ship.cells)
+    .map(({ row, col }) => `${'ABCDEFGHIJ'[row]}${col + 1}`)
+  for (const [i, label] of labels.entries()) {
+    await user.click(enemyCell(label))
+    if (i < labels.length - 1) await screen.findByText(/Your turn\./)
+  }
+}
+
+function scoreboard() {
+  return screen.getByRole('region', { name: 'Scoreboard' })
 }
 
 describe('App', () => {
@@ -114,5 +128,49 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'New game' }))
     expect(screen.getByRole('heading', { name: 'Deploy your fleet', level: 2 })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start battle' })).toBeDisabled()
+  })
+
+  it('counts a won game once, keeps it across new games, and ignores abandoned games', async () => {
+    const { user } = setup()
+    expect(scoreboard()).toHaveTextContent(/You\s*0\s*Computer\s*0\s*Games played\s*0/)
+    expect(within(scoreboard()).getByRole('button', { name: 'Reset scores' })).toBeDisabled()
+
+    await startWithRandomFleet(user)
+    await winGame(user)
+    expect(screen.getByRole('status')).toHaveTextContent('Score: You 1, Computer 0.')
+    expect(scoreboard()).toHaveTextContent(/You\s*1\s*Computer\s*0\s*Games played\s*1/)
+
+    await user.click(screen.getByRole('button', { name: 'New game' }))
+    await startWithRandomFleet(user)
+    await user.click(enemyCell('J1'))
+    await screen.findByText(/Your turn\./)
+    await user.click(screen.getByRole('button', { name: 'New game' }))
+    expect(scoreboard()).toHaveTextContent(/You\s*1\s*Computer\s*0\s*Games played\s*1/)
+  })
+
+  it('resets scores only after confirmation, and a reload starts from zero', async () => {
+    const { user } = setup()
+    await startWithRandomFleet(user)
+    await winGame(user)
+    const board = within(scoreboard())
+
+    await user.click(board.getByRole('button', { name: 'Reset scores' }))
+    expect(board.getByRole('button', { name: 'Yes, reset' })).toHaveFocus()
+    await user.click(board.getByRole('button', { name: 'Cancel' }))
+    expect(scoreboard()).toHaveTextContent(/Games played\s*1/)
+    expect(board.getByRole('button', { name: 'Reset scores' })).toHaveFocus()
+
+    await user.click(board.getByRole('button', { name: 'Reset scores' }))
+    await user.click(board.getByRole('button', { name: 'Yes, reset' }))
+    expect(scoreboard()).toHaveTextContent(/You\s*0\s*Computer\s*0\s*Games played\s*0/)
+    expect(board.getByRole('heading', { name: 'Scoreboard' })).toHaveFocus()
+    expect(screen.getByRole('heading', { name: 'Victory — you win!' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'New game' }))
+    await startWithRandomFleet(user)
+    await winGame(user)
+    cleanup()
+    setup()
+    expect(scoreboard()).toHaveTextContent(/Games played\s*0/)
   })
 })
