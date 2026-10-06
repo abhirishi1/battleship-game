@@ -4,6 +4,8 @@ A polished, single-player Battleship game that runs entirely in the browser. You
 computer opponent whose moves are **deterministic and explainable**: after every shot it tells you
 which mode it is in and why it chose that square.
 
+**Play it live:** https://dist-oozafriw.devinapps.com
+
 - No backend, database, accounts, analytics, external APIs, paid services, or secrets.
 - The production build is a folder of static files (`dist/`) that any static host can serve.
 
