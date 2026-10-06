@@ -29,7 +29,7 @@ How the game was tested:
 ## Bugs found and fixed
 
 The first three items were defects in the application, found by the automated UI tests or by
-reviewing the running app. Items 4 and 5 were mistakes in the tests themselves; the game code was
+reviewing the running app. Items 4 to 6 were mistakes in the tests themselves; the game code was
 correct. No defect has been found in the rules engine or the AI logic so far.
 
 ### 1. Two headings with the same text during placement
@@ -89,6 +89,18 @@ correct. No defect has been found in the rules engine or the AI logic so far.
   fixed test fleet. That way only the computer can win (`src/game/game.test.ts`).
 - **Verification:** the test passes and checks that the winner is the computer and that later
   `playerFire` and `computerFire` actions are ignored.
+
+### 6. (Test defect) Scoreboard UI test timed out on CI
+
+- **Symptom:** on GitHub Actions, the test "resets scores only after confirmation, and a reload
+  starts from zero" failed with "Test timed out in 5000ms". The same test passed locally, and the
+  change being tested (a wording-only edit) did not touch the game.
+- **Root cause:** this test plays two complete games through the UI (34 clicks with screen updates).
+  On the slower CI runner it took just over Vitest's default 5-second limit per test; another
+  full-game UI test took about 3.6 seconds, close to the same limit.
+- **Fix:** the test time limit is raised to 15 seconds in `vite.config.ts` (`testTimeout`). The game
+  code was correct and is unchanged.
+- **Verification:** all 71 tests pass locally and in CI.
 
 ## Verification performed
 

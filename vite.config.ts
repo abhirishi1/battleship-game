@@ -34,5 +34,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // UI tests that play whole games take ~5 s on CI runners, Vitest's default limit.
+    testTimeout: 15_000,
   },
 })
