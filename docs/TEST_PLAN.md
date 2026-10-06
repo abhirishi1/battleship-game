@@ -35,6 +35,7 @@ says otherwise. Mark each case Pass/Fail and note anything unexpected in `docs/B
 | B8 | After it hits the same ship twice in a line. | The reason says the hits "line up along row/column …" and it keeps firing along that line, reversing after a miss or the board edge. |
 | B9 | When a ship is sunk (either side). | The status names the ship ("you sank the computer's Destroyer" / "it sank your Cruiser"); the fleet list marks it Sunk; its squares turn dark red. A plain hit never names the ship. |
 | B10 | Throughout a full game. | No square on either board is ever fired at twice (check the log and the boards). |
+| B11 | During your turn, double-click an untried enemy square. | One shot is fired; after the computer replies, the status line shows its result and "Your turn." (it does not stay on "Wait for the computer's shot."). |
 
 ## Game over and restart
 
@@ -48,6 +49,7 @@ says otherwise. Mark each case Pass/Fail and note anything unexpected in `docs/B
 | G6 | Start a battle, fire a few shots, then click *New game* before anyone wins. | Scoreboard does not change. |
 | G7 | Click *Reset scores*, then *Cancel*; click it again, then *Yes, reset*. | Cancel keeps the scores; Yes sets all three numbers to 0. The current game is not affected. |
 | G8 | Play a game to the end, then reload the page. | Scoreboard is back to 0 (scores last for the current visit only). |
+| G9 | Using only the keyboard, press *New game* after a finished game. | Focus moves to square A1 of your grid, ready to place the Carrier. |
 
 ## Keyboard and accessibility
 

@@ -58,12 +58,16 @@ export default function App({
   const [orientation, setOrientation] = useState<Orientation>('horizontal')
   const [hovered, setHovered] = useState<Coord | null>(null)
   const [notice, setNotice] = useState('')
+  const [playerGridFocus, setPlayerGridFocus] = useState(0)
   const newGameRef = useRef<HTMLButtonElement>(null)
 
   // The computer replies with exactly one shot after each player shot.
   useEffect(() => {
     if (state.phase !== 'battle' || state.turn !== 'computer') return
-    const timer = window.setTimeout(() => dispatch({ type: 'computerFire' }), computerDelayMs)
+    const timer = window.setTimeout(() => {
+      setNotice('')
+      dispatch({ type: 'computerFire' })
+    }, computerDelayMs)
     return () => window.clearTimeout(timer)
   }, [state.phase, state.turn, computerDelayMs])
 
@@ -152,6 +156,7 @@ export default function App({
     setOrientation('horizontal')
     setHovered(null)
     setNotice('')
+    setPlayerGridFocus((count) => count + 1)
   }
 
   let announcement: string
@@ -186,6 +191,7 @@ export default function App({
               getCell={(coord) => playerCellView(state, coord, preview, selectedShip !== null)}
               onActivate={state.phase === 'placement' ? placeAt : undefined}
               onFocusCell={state.phase === 'placement' ? setHovered : undefined}
+              focusRequest={playerGridFocus}
             />
             {state.phase === 'placement' ? (
               <p className={`placement-feedback${preview && !preview.ok ? ' placement-feedback--invalid' : ''}`}>

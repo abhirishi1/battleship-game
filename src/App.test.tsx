@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 import { columnFleet, stackedFleet } from './game/testFleets'
 
-function setup() {
+function setup(computerDelayMs = 0) {
   const user = userEvent.setup()
   // Player's "Randomize" and the computer's fleet both come from createFleet in call order.
   const fleets = [stackedFleet(), columnFleet()]
   let calls = 0
-  render(<App computerDelayMs={0} createFleet={() => fleets[calls++ % fleets.length]} createSeed={() => 1} />)
+  render(<App computerDelayMs={computerDelayMs} createFleet={() => fleets[calls++ % fleets.length]} createSeed={() => 1} />)
   return { user }
 }
 
@@ -133,6 +133,15 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'New game' }))
     expect(screen.getByRole('heading', { name: 'Deploy your fleet', level: 2 })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start battle' })).toBeDisabled()
+    expect(within(playerGrid()).getByRole('button', { name: /^A1,/ })).toHaveFocus()
+  })
+
+  it('clears the "wait" warning once the computer has fired (double-click)', async () => {
+    const { user } = setup(100)
+    await startWithRandomFleet(user)
+    await user.dblClick(enemyCell('A1'))
+    expect(screen.getByRole('status')).toHaveTextContent("Wait for the computer's shot.")
+    expect(await screen.findByText(/Computer fired at [A-J]\d+: (hit on your fleet|miss)\. Your turn\./)).toBeInTheDocument()
   })
 
   it('counts a won game once, keeps it across new games, and ignores abandoned games', async () => {

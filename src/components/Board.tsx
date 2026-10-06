@@ -30,6 +30,8 @@ interface BoardProps {
   disabled?: boolean
   /** Move keyboard focus into the grid when it first appears. */
   focusOnMount?: boolean
+  /** Move keyboard focus to the first square whenever this number changes (0 = never). */
+  focusRequest?: number
 }
 
 const SYMBOLS: Partial<Record<CellAppearance, string>> = {
@@ -56,6 +58,7 @@ export function Board({
   onFocusCell,
   disabled = false,
   focusOnMount = false,
+  focusRequest = 0,
 }: BoardProps) {
   const [active, setActive] = useState<Coord>({ row: 0, col: 0 })
   const cellRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -63,6 +66,12 @@ export function Board({
   useEffect(() => {
     if (focusOnMount) cellRefs.current.get('0,0')?.focus()
   }, [focusOnMount])
+
+  useEffect(() => {
+    if (!focusRequest) return
+    setActive({ row: 0, col: 0 })
+    cellRefs.current.get('0,0')?.focus()
+  }, [focusRequest])
 
   function focusCell(coord: Coord) {
     setActive(coord)

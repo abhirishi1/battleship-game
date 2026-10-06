@@ -56,7 +56,11 @@ export function enemyCellView(state: GameState, coord: Coord): CellView {
   if (mark === 'hit' && ship) {
     return isShipSunk(board, ship)
       ? { appearance: 'sunk', description: `hit, ${shipName(ship.type)} sunk`, actionable: false }
-      : { appearance: 'hit', description: 'hit', actionable: false }
+      : {
+          appearance: 'hit',
+          description: state.phase === 'gameOver' ? `hit, ${shipName(ship.type)}` : 'hit',
+          actionable: false,
+        }
   }
   if (state.phase === 'gameOver' && ship) {
     return { appearance: 'revealed', description: `${shipName(ship.type)}, not found`, actionable: false }
