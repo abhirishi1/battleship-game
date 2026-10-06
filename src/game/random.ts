@@ -1,6 +1,6 @@
 export type RandomSource = () => number
 
-/** Small deterministic PRNG (mulberry32): the same seed always gives the same numbers. */
+/** Small seeded PRNG (mulberry32): the same seed always gives the same numbers. */
 export function seededRandom(seed: number): RandomSource {
   let state = seed >>> 0
   return () => {

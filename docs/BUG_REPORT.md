@@ -12,11 +12,11 @@ How the game was tested:
   coordinates, placement rules, firing, sinking, victory, turn order and reset, the computer
   opponent, the scoreboard, and the React UI.
 - **Simulation:** the AI test suite plays 500 complete games against random fleets. It checks that
-  no shot is repeated or off the board, that every game finishes, and that the AI is deterministic.
-  A separate one-off run of 2,000 games needed 54.2 shots on average to win (minimum 27, median 55,
-  maximum 66). After the owner asked for a randomised opponent (seeded per game; see the README),
-  the suite checks that the same seed replays the same game, and a new 2,000-game run needed 51.2
-  shots on average (minimum 24, median 52, maximum 67).
+  no shot is repeated or off the board, that every game finishes, and that the randomized AI
+  replays exactly the same game from the same seed. A one-off run of 2,000 games with the original
+  fixed-order AI needed 54.2 shots on average to win (minimum 27, median 55, maximum 66). After the
+  owner asked for a randomized AI (seeded per game; see the README), a new 2,000-game run needed
+  51.2 shots on average (minimum 24, median 52, maximum 67).
 - **Browser checks** (Chromium, scripted with Playwright): placement preview by mouse and keyboard,
   a full battle, the 375 px mobile layout, the production build served by `vite preview` with its
   Content-Security-Policy, no console errors, and no network requests beyond the site's own files.
