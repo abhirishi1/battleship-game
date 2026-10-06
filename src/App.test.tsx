@@ -69,12 +69,17 @@ describe('App', () => {
     await user.click(cell('A3'))
     expect(screen.getByRole('status')).toHaveTextContent('it would overlap your Carrier')
 
+    await user.click(cell('B1'))
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "Battleship can't go there: it would touch your Carrier. Leave at least one square of water between ships.",
+    )
+
     await user.keyboard('r')
     expect(screen.getByRole('button', { name: 'Rotate: Vertical' })).toBeInTheDocument()
-    await user.click(cell('B1'))
-    expect(screen.getByRole('status')).toHaveTextContent('Battleship placed at B1–E1')
+    await user.click(cell('C1'))
+    expect(screen.getByRole('status')).toHaveTextContent('Battleship placed at C1–F1')
 
-    for (const label of ['B2', 'B3', 'B4']) await user.click(cell(label))
+    for (const label of ['C3', 'C5', 'C7']) await user.click(cell(label))
     expect(screen.getByRole('button', { name: 'Start battle' })).toBeEnabled()
   })
 

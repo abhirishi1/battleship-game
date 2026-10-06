@@ -56,7 +56,7 @@ npm ci
 
 - Each side has a 10×10 grid (rows A–J, columns 1–10) and five ships: Carrier (5), Battleship (4),
   Cruiser (3), Submarine (3), Destroyer (2).
-- Ships are placed horizontally or vertically, must stay on the board, and may touch but not overlap.
+- Ships are placed horizontally or vertically, must stay on the board, and may not overlap or touch, not even at a corner: every ship has at least one square of water around it.
 - **Placement:** pick a ship, rotate with the button or <kbd>R</kbd>, and click a square to place the
   ship's top/left end. A green preview means the ship fits; a red dashed preview explains why it
   doesn't. *Randomize fleet* places all five ships legally. *Start battle* is enabled only when all
@@ -95,8 +95,8 @@ src/
 
 **Separation of concerns**
 
-- **Rules** (`board.ts`) are pure functions. Illegal placements return a reason (`out-of-bounds`
-  or `overlap`); illegal shots return `out-of-bounds` or `duplicate` and change nothing.
+- **Rules** (`board.ts`) are pure functions. Illegal placements return a reason (`out-of-bounds`,
+  `overlap`, or `too-close` when ships would touch); illegal shots return `out-of-bounds` or `duplicate` and change nothing.
 - **Game flow** (`game.ts`) is a single reducer, `gameReducer(state, action)`. Phases are
   `placement → battle → gameOver`. Any action that is not legal right now (firing out of turn,
   firing twice at a square, starting with an incomplete fleet, placing ships mid-battle, a second
@@ -161,7 +161,7 @@ rejects duplicates. Tests play 500 complete games against random fleets to check
 
 ## Testing
 
-- `npm test` runs unit tests for coordinates, placement (valid, out-of-bounds, overlap), firing
+- `npm test` runs unit tests for coordinates, placement (valid, out-of-bounds, overlap, touching incl. corners), firing
   (hit, miss, duplicate, sunk), victory, reset and turn order, AI tests (random checkerboard hunt,
   switching from hunt to target, random neighbour probing, axis following, never repeating a shot
   across 500 games, same seed replays the same game), scoreboard tests (a win counts once, abandoned

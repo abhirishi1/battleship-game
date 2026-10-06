@@ -32,6 +32,6 @@ export interface Board {
 
 export type ShotResult = 'miss' | 'hit' | 'sunk'
 
-export type PlacementError = 'out-of-bounds' | 'overlap'
+export type PlacementError = 'out-of-bounds' | 'overlap' | 'too-close'
 
 export type FireError = 'out-of-bounds' | 'duplicate'

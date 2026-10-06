@@ -8,7 +8,7 @@ building and testing it. Nothing has been added to make the list look longer.
 
 How the game was tested:
 
-- **Automated tests** (`npm test`, Vitest + React Testing Library): 71 tests in 6 files. They cover
+- **Automated tests** (`npm test`, Vitest + React Testing Library): 73 tests in 6 files. They cover
   coordinates, placement rules, firing, sinking, victory, turn order and reset, the computer
   opponent, the scoreboard, and the React UI.
 - **Simulation:** the AI test suite plays 500 complete games against random fleets. It checks that
@@ -28,9 +28,9 @@ How the game was tested:
 
 ## Bugs found and fixed
 
-The first three items were defects in the application, found by the automated UI tests or by
-reviewing the running app. Items 4 to 6 were mistakes in the tests themselves; the game code was
-correct. No defect has been found in the rules engine or the AI logic so far.
+Items 1–3 and 7 were defects in the application, found by the automated UI tests, by reviewing the
+running app, or by the project owner while playing. Items 4 to 6 were mistakes in the tests
+themselves; the game code was correct. No defect has been found in the AI logic so far.
 
 ### 1. Two headings with the same text during placement
 
@@ -100,13 +100,33 @@ correct. No defect has been found in the rules engine or the AI logic so far.
   full-game UI test took about 3.6 seconds, close to the same limit.
 - **Fix:** the test time limit is raised to 15 seconds in `vite.config.ts` (`testTimeout`). The game
   code was correct and is unchanged.
-- **Verification:** all 71 tests pass locally and in CI.
+- **Verification:** all 71 tests passed locally and in CI at the time.
+
+### 7. Touching ships looked like extra ships (reported by the project owner)
+
+- **Symptom:** while playing the live site, the project owner saw what looked like two Battleships
+  (4 squares in a row) in the enemy grid, although the fleet has only one.
+- **Investigation:** 100,000 generated fleets all had exactly one ship of each type, the right
+  lengths, and no shared squares, and three full games on the live site each had exactly one
+  4-square Battleship. So there was no overlap. The rules let ships touch, and the grid draws touching
+  ships as one block. For example, a 3-square ship ending next to the Carrier's side reads as 4 in a
+  row. About 1 in 5 random fleets contained two or more such 4-in-a-row lookalikes.
+- **Root cause:** the placement rule allowed ships to touch, and nothing on screen shows where one ship
+  ends and the next begins.
+- **Fix (rule chosen by the owner):** ships may no longer touch, not even at a corner.
+  `checkPlacement` returns a new `too-close` reason, so manual placement shows "…it would touch your
+  Carrier. Leave at least one square of water between ships." `randomFleet` follows the same rule
+  and starts over if early ships leave no room. The game also checks the computer's fleet with the same
+  rule before a battle starts.
+- **Verification:** new unit tests reject side, end and corner contact and accept a one-square gap;
+  2,000 seeded random fleets are checked to have no touching ships; the UI test checks the new
+  message. All 73 tests pass.
 
 ## Verification performed
 
 - `npm ci`: clean install from the lockfile.
 - `npm run lint`: 0 warnings, 0 errors.
-- `npm test`: 6 test files, 71 tests passed.
+- `npm test`: 6 test files, 73 tests passed.
 - `npm run build`: type check plus Vite production build, written to `dist/`.
 - Production preview (`npm run preview`) in Chromium: no console errors or CSP violations. The only
   requests were for `index.html`, one JS file, one CSS file, and the favicon.

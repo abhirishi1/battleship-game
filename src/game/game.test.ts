@@ -50,6 +50,13 @@ describe('placement phase', () => {
     })
     expect(overlap).toBe(state)
 
+    const touching = gameReducer(state, {
+      type: 'placeShip',
+      shipType: 'battleship',
+      origin: { row: 1, col: 5 },
+      orientation: 'vertical',
+    })
+    expect(touching).toBe(state)
   })
 
   it('cannot start until all five ships are placed', () => {
