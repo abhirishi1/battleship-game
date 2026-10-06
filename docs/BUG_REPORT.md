@@ -8,7 +8,7 @@ building and testing it. Nothing has been added to make the list look longer.
 
 How the game was tested:
 
-- **Automated tests** (`npm test`, Vitest + React Testing Library): 76 tests in 7 files. They cover
+- **Automated tests** (`npm test`, Vitest + React Testing Library): 75 tests in 7 files. They cover
   coordinates, placement rules, firing, sinking, victory, turn order and reset, the computer
   opponent, the scoreboard, and the React UI.
 - **Simulation:** the AI test suite plays 500 complete games against random fleets. It checks that
@@ -16,7 +16,10 @@ How the game was tested:
   replays exactly the same game from the same seed. A one-off run of 2,000 games with the original
   fixed-order AI needed 54.2 shots on average to win (minimum 27, median 55, maximum 66). After the
   owner asked for a randomized AI (seeded per game; see the README), a new 2,000-game run needed
-  51.2 shots on average (minimum 24, median 52, maximum 67).
+  51.2 shots on average (minimum 24, median 52, maximum 67). Ships may no longer touch, which
+  spreads fleets out, and against such fleets that AI needed 53.0 shots. The owner then asked for a
+  smarter opponent, a "most likely square" heat map that also uses the no-touch rule (see the README).
+  On the same 2,000 fleets it needs 38.6 shots on average (minimum 22, median 38, maximum 57).
 - **Browser checks** (Chromium, scripted with Playwright): placement preview by mouse and keyboard,
   a full battle, the 375 px mobile layout, the production build served by `vite preview` with its
   Content-Security-Policy, no console errors, and no network requests beyond the site's own files.
@@ -28,8 +31,8 @@ How the game was tested:
 
 ## Bugs found and fixed
 
-Items 1–3 and 7–10 were defects in the application, found by the automated UI tests, by reviewing
-the running app, by the project owner while playing, or in a dedicated bug hunt the owner requested. Items 4 to 6 were mistakes in the tests
+Items 1–3, 7–10 and 12 were defects in the application, found by the automated UI tests, by reviewing
+the running app, by the project owner while playing, or in a dedicated bug hunt the owner requested. Items 4 to 6 and 11 were mistakes in the tests
 themselves; the game code was correct. No defect has been found in the AI logic so far.
 
 ### 1. Two headings with the same text during placement
@@ -159,11 +162,35 @@ themselves; the game code was correct. No defect has been found in the AI logic 
 - **Verification:** new unit tests in `cellViews.test.ts` check both phases. The game-over test failed
   before the fix and passes after it.
 
+### 11. (Test defect) Heat-map test expected the wrong score for D5
+
+- **Symptom:** a new AI test for the heat map failed. It expected square D5 on an empty board to be
+  covered by 30 possible ship positions, but the AI counted 33.
+- **Root cause:** the test was wrong. When working out the expected number by hand, the vertical
+  positions through D5 were added up with only one of the two 3-square ships (Cruiser and
+  Submarine), so 3 positions were missing. 17 across plus 16 down is 33.
+- **Fix:** the test now expects 33 (`src/game/ai.test.ts`).
+- **Verification:** the test passes. The other hand-worked scores in the same tests (10 for A1,
+  34 for E5, 12 and 22 after a hit at E1) were rechecked the same way and were already right.
+
+### 12. Lint warning introduced by the fix for item 9
+
+- **Found by:** running `npm run lint` while building the heat-map AI. It reported one warning
+  (`react(set-state-in-effect)` in `src/components/Board.tsx`), so this log's claim of
+  "0 warnings" had been wrong since the fix for item 9.
+- **Symptom:** no visible effect in the game; lint still passed, because warnings don't fail it.
+- **Root cause:** the new focus effect in `Board` set its own state (`setActive`) and then moved
+  focus. Setting state inside an effect causes an extra render, and it wasn't needed: each square's
+  `onFocus` handler already makes the focused square the active one.
+- **Fix:** the effect now only moves focus to A1, and `onFocus` updates the active square.
+- **Verification:** `npm run lint` reports 0 warnings and 0 errors. The UI test from item 9 (focus
+  on A1 after New game) still passes.
+
 ## Verification performed
 
 - `npm ci`: clean install from the lockfile.
 - `npm run lint`: 0 warnings, 0 errors.
-- `npm test`: 7 test files, 76 tests passed.
+- `npm test`: 7 test files, 75 tests passed.
 - `npm run build`: type check plus Vite production build, written to `dist/`.
 - Production preview (`npm run preview`) in Chromium: no console errors or CSP violations. The only
   requests were for `index.html`, one JS file, one CSS file, and the favicon.
@@ -175,10 +202,10 @@ themselves; the game code was correct. No defect has been found in the AI logic 
 
 ## Known limitations
 
-- The computer opponent has a single difficulty level. Its hunt and probe choices are random per game
-  (originally a fixed order that a player could learn and exploit), but it always fires on one
-  checkerboard colour and always follows a line of hits, so an experienced player can still
-  anticipate its general strategy.
+- The computer opponent has a single difficulty level. It always fires at the most likely square,
+  choosing at random only between ties, so its opening shots cluster around the centre (E5, E6, F5,
+  F6 on an empty board) and an experienced player can anticipate its general strategy. It does not
+  learn from where a player has placed ships in earlier games.
 - A game in progress is not saved; reloading the page starts a new game.
 - The scoreboard is kept in memory only (the owner's choice), so reloading the page resets it to 0.
 - Automated browser checks used Chromium only. Firefox, Safari, and real screen readers (NVDA,

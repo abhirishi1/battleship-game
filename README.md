@@ -79,7 +79,7 @@ src/
     constants.ts        Board size and the fleet
     coords.ts           Coordinate helpers ("B4" <-> { row: 1, col: 3 }, bounds checks)
     board.ts            Placement, firing, sunk/victory detection, random fleets
-    ai.ts               Computer opponent (hunt/target)
+    ai.ts               Computer opponent (heat map, hunt/target)
     random.ts           Seeded random numbers (same seed, same game)
     scoreboard.ts       Win tally for the current visit
     game.ts             Game state + reducer: phases, turns, winner, reset
@@ -111,37 +111,43 @@ src/
 The AI knows only what a human opponent would know: the squares it has fired at and the ordinary
 result of each – *miss*, *hit*, or *sunk &lt;ship name&gt;*. Its whole memory is:
 
-- `shots` – every square it has fired at and the result, and
-- `unresolvedHits` – hits not yet explained by a sunk ship, oldest first.
+- `shots` – every square it has fired at and the result,
+- `unresolvedHits` – hits not yet explained by a sunk ship, oldest first, and
+- `sunkShips` – the ships it has been told it sank.
 
-Each new battle gets a random **seed**. Every random choice the AI makes is derived from that seed
-and the number of shots fired so far, so games differ every time, yet the same seed and the same
-results always replay exactly the same game (which is how the tests check exact behaviour).
+It also knows the placement rules: ships are straight and never overlap or touch, not even at a
+corner.
 
-Each turn it picks the first rule that yields an untried, on-board square:
+**Heat map.** Before every shot it lists every position where each ship it has not sunk yet could
+still be. A position is ruled out if it covers a miss or a square of a sunk ship, or if a hit sits
+right next to it (including diagonally) without being one of its own squares, because ships never
+touch. Each untried square scores the number of positions that cover it, and the AI fires at the
+highest-scoring square (`countShipPositions` and `chooseShot` in `ai.ts`).
 
-1. **Extend a line (target mode).** If two or more unresolved hits are adjacent in a row or column,
-   fire just beyond one end of the line, choosing at random between the open ends. This continues
-   along the detected axis and automatically reverses at a miss or the board edge.
-2. **Probe neighbours (target mode).** Otherwise, for the oldest unresolved hit, fire at a randomly
-   chosen untried square directly above, right of, below or left of it.
-3. **Hunt.** With no unresolved hits, fire at a random untried square of this game's checkerboard
-   colour (the seed picks either the A1 colour or the A2 colour; 50 squares each). Every ship is at
-   least two squares long, so each one must cover a square of either colour. (A sweep of the other
-   colour exists only as a safety net.)
+- **Hunt mode** (no unresolved hits): every possible position counts. Squares in gaps too small for
+  any remaining ship, and all squares around a sunk ship, score 0 and are skipped.
+- **Target mode** (some unresolved hits): only positions through those hits count. So after one hit
+  it tries a neighbour in the direction with the most room (diagonal squares score 0), and after
+  two hits in a line it keeps going along that line, reversing at a miss or the board edge.
 
 When told "sunk &lt;ship&gt;", the AI knows that ship's length and removes a straight run of that
 many unresolved hits containing the sinking shot (preferring runs that end at the sinking shot,
 then runs containing the oldest hit). Any remaining hits belong to another ship, so it keeps
 targeting them.
 
+Each new battle gets a random **seed**. When several squares tie for the highest score, the AI
+picks one at random using that seed, so games differ every time, yet the same seed and the same
+results always replay exactly the same game (which is how the tests check exact behaviour).
+
 Every shot comes with a one-line reason shown in the *Computer's reasoning* panel, e.g.
-*"No unsunk hits; picked D6 at random from 43 untried checkerboard squares."* or
-*"Hits E5–E6 line up along row E; continuing the line at E7 (picked at random from 2 untried ends)."*
-A shot is never repeated: every candidate is filtered against `shots`, and the reducer also
-rejects duplicates. Tests play 500 complete games against random fleets to check this. In a
-2,000-game simulation the AI needed 51.2 shots on average to win (minimum 24, median 52, maximum
-67); random firing needs about 96.
+*"No unsunk hits; E5 fits a ship in 34 possible ways, the most of any untried square (picked at
+random from 4 equally likely squares)."* or *"Unsunk hit at E1; D1 is part of 12 of the 22 possible
+ship positions through it, the most of any square (picked at random from 2 equally likely squares)."*
+A shot is never repeated: only untried squares are scored, and the reducer also rejects duplicates.
+Tests play 500 complete games against random fleets to check this. In a 2,000-game simulation
+against random no-touch fleets the heat-map AI needed 38.6 shots on average to win (minimum 22,
+median 38, maximum 57), compared with 53.0 for the previous random checkerboard AI on the same
+fleets; random firing needs about 96.
 
 ## Accessibility
 
@@ -162,8 +168,8 @@ rejects duplicates. Tests play 500 complete games against random fleets to check
 ## Testing
 
 - `npm test` runs unit tests for coordinates, placement (valid, out-of-bounds, overlap, touching incl. corners), firing
-  (hit, miss, duplicate, sunk), victory, reset and turn order, AI tests (random checkerboard hunt,
-  switching from hunt to target, random neighbour probing, axis following, never repeating a shot
+  (hit, miss, duplicate, sunk), victory, reset and turn order, AI tests (heat-map scores, skipping squares
+  around sunk ships, switching from hunt to target, choosing the roomier direction, following a line, never repeating a shot
   across 500 games, same seed replays the same game), scoreboard tests (a win counts once, abandoned
   games are not counted, reset, reload starts at 0), and UI tests with React Testing Library.
 - Manual test cases are listed in [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
