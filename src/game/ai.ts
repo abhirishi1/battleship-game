@@ -206,7 +206,3 @@ export function recordShot(ai: AiState, coord: Coord, report: ShotReport): AiSta
   const sunk = new Set(inferSunkCells(unresolvedHits, coord, length))
   return { shots, unresolvedHits: unresolvedHits.filter((hit) => !sunk.has(hit)) }
 }
-
-export function currentMode(ai: AiState): AiMode {
-  return ai.unresolvedHits.length > 0 ? 'target' : 'hunt'
-}

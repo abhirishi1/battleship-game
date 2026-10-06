@@ -70,10 +70,6 @@ export function placeShip(
   return { ok: true, board: { ...board, ships: [...others, { type, cells: check.cells }] } }
 }
 
-export function removeShip(board: Board, type: ShipType): Board {
-  return { ...board, ships: board.ships.filter((ship) => ship.type !== type) }
-}
-
 export function isFleetComplete(board: Board): boolean {
   return FLEET.every((definition) => board.ships.some((ship) => ship.type === definition.type))
 }

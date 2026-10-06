@@ -8,7 +8,7 @@ building and testing it. Nothing has been added to make the list look longer.
 
 How the game was tested:
 
-- **Automated tests** (`npm test`, Vitest + React Testing Library): 65 tests in 5 files. They cover
+- **Automated tests** (`npm test`, Vitest + React Testing Library): 64 tests in 5 files. They cover
   coordinates, placement rules, firing, sinking, victory, turn order and reset, the computer
   opponent, and the React UI.
 - **Simulation:** the AI test suite plays 500 complete games against random fleets. It checks that
@@ -86,7 +86,7 @@ correct. No defect has been found in the rules engine or the AI logic so far.
 
 - `npm ci`: clean install from the lockfile.
 - `npm run lint`: 0 warnings, 0 errors.
-- `npm test`: 5 test files, 65 tests passed.
+- `npm test`: 5 test files, 64 tests passed.
 - `npm run build`: type check plus Vite production build, written to `dist/`.
 - Production preview (`npm run preview`) in Chromium: no console errors or CSP violations. The only
   requests were for `index.html`, one JS file, one CSS file, and the favicon.

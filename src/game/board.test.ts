@@ -7,7 +7,6 @@ import {
   isFleetComplete,
   placeShip,
   randomFleet,
-  removeShip,
   seededRandom,
   shipCells,
 } from './board'
@@ -78,14 +77,10 @@ describe('ship placement', () => {
     expect(result.board.ships[0].cells[0]).toEqual({ row: 0, col: 1 })
   })
 
-  it('removes a ship', () => {
-    const board = buildBoard([['cruiser', { row: 0, col: 0 }, 'horizontal']])
-    expect(removeShip(board, 'cruiser').ships).toHaveLength(0)
-  })
-
   it('knows when the fleet is complete', () => {
     expect(isFleetComplete(createEmptyBoard())).toBe(false)
-    expect(isFleetComplete(removeShip(stackedFleet(), 'destroyer'))).toBe(false)
+    const withoutDestroyer = stackedFleet().ships.filter((ship) => ship.type !== 'destroyer')
+    expect(isFleetComplete({ ...stackedFleet(), ships: withoutDestroyer })).toBe(false)
     expect(isFleetComplete(stackedFleet())).toBe(true)
   })
 

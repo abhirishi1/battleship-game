@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { BOARD_SIZE, ROW_LABELS } from '../game/constants'
 import { formatCoord } from '../game/coords'
 import type { Coord } from '../game/types'
@@ -28,6 +28,8 @@ interface BoardProps {
   onActivate?: (coord: Coord) => void
   onFocusCell?: (coord: Coord | null) => void
   disabled?: boolean
+  /** Move keyboard focus into the grid when it first appears. */
+  focusOnMount?: boolean
 }
 
 const SYMBOLS: Partial<Record<CellAppearance, string>> = {
@@ -46,9 +48,21 @@ function clamp(value: number): number {
  * A 10×10 grid of buttons. Only one cell is in the Tab order at a time
  * ("roving tabindex"); arrow keys, Home and End move between cells.
  */
-export function Board({ id, label, getCell, onActivate, onFocusCell, disabled = false }: BoardProps) {
+export function Board({
+  id,
+  label,
+  getCell,
+  onActivate,
+  onFocusCell,
+  disabled = false,
+  focusOnMount = false,
+}: BoardProps) {
   const [active, setActive] = useState<Coord>({ row: 0, col: 0 })
   const cellRefs = useRef(new Map<string, HTMLButtonElement>())
+
+  useEffect(() => {
+    if (focusOnMount) cellRefs.current.get('0,0')?.focus()
+  }, [focusOnMount])
 
   function focusCell(coord: Coord) {
     setActive(coord)

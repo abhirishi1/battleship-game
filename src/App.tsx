@@ -6,7 +6,7 @@ import { FleetStatus } from './components/FleetStatus'
 import { describePlacement, describeShot, shipName } from './components/messages'
 import { PlacementControls } from './components/PlacementControls'
 import { StatusPanel } from './components/StatusPanel'
-import { checkPlacement, hasBeenShot, randomFleet } from './game/board'
+import { checkPlacement, hasBeenShot, placeShip, randomFleet } from './game/board'
 import { FLEET } from './game/constants'
 import { formatCoord } from './game/coords'
 import { createInitialState, gameReducer, type GameState } from './game/game'
@@ -23,8 +23,8 @@ interface AppProps {
 
 const defaultCreateFleet = () => randomFleet()
 
-function nextUnplacedShip(board: BoardState, after?: ShipType): ShipType | null {
-  const unplaced = FLEET.filter(({ type }) => type !== after && !board.ships.some((ship) => ship.type === type))
+function nextUnplacedShip(board: BoardState): ShipType | null {
+  const unplaced = FLEET.filter(({ type }) => !board.ships.some((ship) => ship.type === type))
   return unplaced[0]?.type ?? null
 }
 
@@ -59,11 +59,7 @@ export default function App({ computerDelayMs = COMPUTER_DELAY_MS, createFleet =
   }, [state.phase, state.turn, computerDelayMs])
 
   useEffect(() => {
-    if (state.phase === 'battle') {
-      document.querySelector<HTMLButtonElement>('#enemy-grid button[tabindex="0"]')?.focus()
-    } else if (state.phase === 'gameOver') {
-      newGameRef.current?.focus()
-    }
+    if (state.phase === 'gameOver') newGameRef.current?.focus()
   }, [state.phase])
 
   const rotate = useCallback(() => {
@@ -100,8 +96,8 @@ export default function App({ computerDelayMs = COMPUTER_DELAY_MS, createFleet =
       return
     }
     dispatch({ type: 'placeShip', shipType: selectedShip, origin: coord, orientation })
-    const placedBoard = { ...state.player, ships: [...state.player.ships, { type: selectedShip, cells: check.cells }] }
-    const next = nextUnplacedShip(placedBoard, selectedShip)
+    const placed = placeShip(state.player, selectedShip, coord, orientation)
+    const next = placed.ok ? nextUnplacedShip(placed.board) : null
     setSelectedShip(next)
     setNotice(
       `${shipName(selectedShip)} placed at ${formatCoord(check.cells[0])}–${formatCoord(check.cells.at(-1)!)}. ` +
@@ -109,7 +105,7 @@ export default function App({ computerDelayMs = COMPUTER_DELAY_MS, createFleet =
     )
   }
 
-  function fireAt(coord: Coord) {
+  function handleFire(coord: Coord) {
     if (state.phase !== 'battle') return
     if (state.turn !== 'player') {
       setNotice("Wait for the computer's shot.")
@@ -210,8 +206,9 @@ export default function App({ computerDelayMs = COMPUTER_DELAY_MS, createFleet =
                 id="enemy-grid"
                 label="Enemy waters"
                 getCell={(coord) => enemyCellView(state, coord)}
-                onActivate={fireAt}
+                onActivate={handleFire}
                 disabled={state.phase !== 'battle' || state.turn !== 'player'}
+                focusOnMount
               />
               <FleetStatus title="Enemy ships" board={state.computer} concealed />
             </section>

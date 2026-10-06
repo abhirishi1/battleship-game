@@ -7,7 +7,6 @@ import {
   fireAt,
   isFleetComplete,
   placeShip,
-  removeShip,
 } from './board'
 import { FLEET } from './constants'
 import type { Board, Coord, Orientation, ShipType, ShotResult } from './types'
@@ -41,7 +40,6 @@ export interface GameState {
 
 export type GameAction =
   | { type: 'placeShip'; shipType: ShipType; origin: Coord; orientation: Orientation }
-  | { type: 'removeShip'; shipType: ShipType }
   | { type: 'setPlayerFleet'; board: Board }
   | { type: 'clearFleet' }
   | { type: 'startGame'; computerBoard: Board }
@@ -87,10 +85,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const result = placeShip(state.player, action.shipType, action.origin, action.orientation)
       return result.ok ? { ...state, player: result.board } : state
     }
-
-    case 'removeShip':
-      if (state.phase !== 'placement') return state
-      return { ...state, player: removeShip(state.player, action.shipType) }
 
     case 'setPlayerFleet':
       if (state.phase !== 'placement' || !isValidFleet(action.board)) return state

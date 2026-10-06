@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chooseShot, createAiState, currentMode, HUNT_SEQUENCE, recordShot, type AiState } from './ai'
+import { chooseShot, createAiState, HUNT_SEQUENCE, recordShot, type AiState } from './ai'
 import { allShipsSunk, fireAt, randomFleet, seededRandom } from './board'
 import { formatCoord, parseCoord, toKey } from './coords'
 import { buildBoard, columnFleet, stackedFleet } from './testFleets'
@@ -65,8 +65,8 @@ describe('AI hunt mode', () => {
 
 describe('AI target mode', () => {
   it('switches from hunt to target mode after a hit and probes an adjacent square', () => {
+    expect(chooseShot(createAiState()).mode).toBe('hunt')
     const ai = aiAfter(['E5', 'hit'])
-    expect(currentMode(ai)).toBe('target')
     const decision = chooseShot(ai)
     expect(decision.mode).toBe('target')
     expect(decision.coord).toEqual(at('D5'))

@@ -49,8 +49,6 @@ describe('placement phase', () => {
     })
     expect(overlap).toBe(state)
 
-    state = gameReducer(state, { type: 'removeShip', shipType: 'carrier' })
-    expect(state.player.ships).toHaveLength(0)
   })
 
   it('cannot start until all five ships are placed', () => {
@@ -92,7 +90,6 @@ describe('placement phase', () => {
   it('locks placement once the battle starts', () => {
     const state = battleState()
     expect(gameReducer(state, { type: 'clearFleet' })).toBe(state)
-    expect(gameReducer(state, { type: 'removeShip', shipType: 'carrier' })).toBe(state)
     expect(gameReducer(state, { type: 'setPlayerFleet', board: columnFleet() })).toBe(state)
   })
 })
