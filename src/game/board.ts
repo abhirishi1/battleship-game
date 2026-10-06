@@ -10,8 +10,9 @@ import type {
   ShipType,
   ShotResult,
 } from './types'
+import type { RandomSource } from './random'
 
-export type RandomSource = () => number
+export { seededRandom, type RandomSource } from './random'
 
 export function createEmptyBoard(): Board {
   return { ships: [], shots: {} }
@@ -126,17 +127,5 @@ export function fireAt(board: Board, coord: Coord): FireOutcome {
     board: next,
     result: isShipSunk(next, target) ? 'sunk' : 'hit',
     shipType: target.type,
-  }
-}
-
-/** Small deterministic PRNG (mulberry32) for repeatable tests. */
-export function seededRandom(seed: number): RandomSource {
-  let state = seed >>> 0
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0
-    let t = state
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }

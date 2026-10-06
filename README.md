@@ -1,8 +1,8 @@
 # Battleship
 
 A polished, single-player Battleship game that runs entirely in the browser. You play against a
-computer opponent whose moves are **deterministic and explainable**: after every shot it tells you
-which mode it is in and why it chose that square.
+computer opponent whose moves are **random but explainable and repeatable**: after every shot it tells
+you which mode it is in and why it chose that square, and each game's seed can replay it exactly.
 
 **Play it live:** https://dist-oozafriw.devinapps.com
 
@@ -76,6 +76,7 @@ src/
     coords.ts           Coordinate helpers ("B4" <-> { row: 1, col: 3 }, bounds checks)
     board.ts            Placement, firing, sunk/victory detection, random fleets
     ai.ts               Computer opponent (hunt/target)
+    random.ts           Seeded random numbers (same seed, same game)
     game.ts             Game state + reducer: phases, turns, winner, reset
     *.test.ts           Unit tests
   components/           React UI
@@ -108,29 +109,34 @@ result of each – *miss*, *hit*, or *sunk &lt;ship name&gt;*. Its whole memory 
 - `shots` – every square it has fired at and the result, and
 - `unresolvedHits` – hits not yet explained by a sunk ship, oldest first.
 
+Each new battle gets a random **seed**. Every random choice the AI makes is derived from that seed
+and the number of shots fired so far, so games differ every time, yet the same seed and the same
+results always replay exactly the same game (which is how the tests check exact behaviour).
+
 Each turn it picks the first rule that yields an untried, on-board square:
 
 1. **Extend a line (target mode).** If two or more unresolved hits are adjacent in a row or column,
-   fire just beyond the line – the right/bottom end first, then the left/top end. This continues
+   fire just beyond one end of the line, choosing at random between the open ends. This continues
    along the detected axis and automatically reverses at a miss or the board edge.
-2. **Probe neighbours (target mode).** Otherwise, for the oldest unresolved hit, try the
-   orthogonally adjacent squares in the fixed order up, right, down, left.
-3. **Hunt.** With no unresolved hits, fire at the next untried square of a fixed checkerboard
-   sequence: A1, A3, A5, A7, A9, B2, B4, … (50 squares). Every ship is at least two squares long, so
-   each one must cover a checkerboard square. (A sweep of the remaining squares exists only as a
-   safety net.)
+2. **Probe neighbours (target mode).** Otherwise, for the oldest unresolved hit, fire at a randomly
+   chosen untried square directly above, right of, below or left of it.
+3. **Hunt.** With no unresolved hits, fire at a random untried square of this game's checkerboard
+   colour (the seed picks either the A1 colour or the A2 colour; 50 squares each). Every ship is at
+   least two squares long, so each one must cover a square of either colour. (A sweep of the other
+   colour exists only as a safety net.)
 
 When told "sunk &lt;ship&gt;", the AI knows that ship's length and removes a straight run of that
 many unresolved hits containing the sinking shot (preferring runs that end at the sinking shot,
 then runs containing the oldest hit). Any remaining hits belong to another ship, so it keeps
 targeting them.
 
-Because every rule uses a fixed order and no randomness, the same sequence of results always
-produces the same shots. Every shot comes with a one-line reason shown in the *Computer's
-reasoning* panel, e.g. *"Hits E5–E6 line up along row E; continuing the line at E7."*
+Every shot comes with a one-line reason shown in the *Computer's reasoning* panel, e.g.
+*"No unsunk hits; picked D6 at random from 43 untried checkerboard squares."* or
+*"Hits E5–E6 line up along row E; continuing the line at E7 (picked at random from 2 untried ends)."*
 A shot is never repeated: every candidate is filtered against `shots`, and the reducer also
-rejects duplicates. Tests play 500 complete games against random fleets to check this; the AI
-needs about 50–60 shots on average to win (random firing needs about 96).
+rejects duplicates. Tests play 500 complete games against random fleets to check this. In a
+2,000-game simulation the AI needed 51.2 shots on average to win (minimum 24, median 52, maximum
+67); random firing needs about 96.
 
 ## Accessibility
 
@@ -151,9 +157,9 @@ needs about 50–60 shots on average to win (random firing needs about 96).
 ## Testing
 
 - `npm test` runs unit tests for coordinates, placement (valid, out-of-bounds, overlap), firing
-  (hit, miss, duplicate, sunk), victory, reset and turn order, AI tests (fixed hunt sequence,
-  switching from hunt to target, axis following, never repeating a shot across 500 games,
-  determinism), and UI tests with React Testing Library.
+  (hit, miss, duplicate, sunk), victory, reset and turn order, AI tests (random checkerboard hunt,
+  switching from hunt to target, random neighbour probing, axis following, never repeating a shot
+  across 500 games, same seed replays the same game), and UI tests with React Testing Library.
 - Manual test cases are listed in [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
 - Defects found and fixed are recorded in [`docs/BUG_REPORT.md`](docs/BUG_REPORT.md).
 

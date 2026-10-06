@@ -19,9 +19,12 @@ interface AppProps {
   computerDelayMs?: number
   /** Creates a random legal fleet; injectable so tests can use known layouts. */
   createFleet?: () => BoardState
+  /** Seed for the computer's random choices in a new battle; injectable so tests can replay a game. */
+  createSeed?: () => number
 }
 
 const defaultCreateFleet = () => randomFleet()
+const defaultCreateSeed = () => Math.floor(Math.random() * 2 ** 32)
 
 function nextUnplacedShip(board: BoardState): ShipType | null {
   const unplaced = FLEET.filter(({ type }) => !board.ships.some((ship) => ship.type === type))
@@ -43,7 +46,11 @@ function battleAnnouncement(state: GameState): string {
   return `${playerPart}${describeShot(last)} Your turn.`
 }
 
-export default function App({ computerDelayMs = COMPUTER_DELAY_MS, createFleet = defaultCreateFleet }: AppProps) {
+export default function App({
+  computerDelayMs = COMPUTER_DELAY_MS,
+  createFleet = defaultCreateFleet,
+  createSeed = defaultCreateSeed,
+}: AppProps) {
   const [state, dispatch] = useReducer(gameReducer, undefined, createInitialState)
   const [selectedShip, setSelectedShip] = useState<ShipType | null>('carrier')
   const [orientation, setOrientation] = useState<Orientation>('horizontal')
@@ -132,7 +139,7 @@ export default function App({ computerDelayMs = COMPUTER_DELAY_MS, createFleet =
   }
 
   function startGame() {
-    dispatch({ type: 'startGame', computerBoard: createFleet() })
+    dispatch({ type: 'startGame', computerBoard: createFleet(), aiSeed: createSeed() })
     setHovered(null)
     setNotice('')
   }

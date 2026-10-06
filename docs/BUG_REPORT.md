@@ -8,13 +8,15 @@ building and testing it. Nothing has been added to make the list look longer.
 
 How the game was tested:
 
-- **Automated tests** (`npm test`, Vitest + React Testing Library): 64 tests in 5 files. They cover
+- **Automated tests** (`npm test`, Vitest + React Testing Library): 65 tests in 5 files. They cover
   coordinates, placement rules, firing, sinking, victory, turn order and reset, the computer
   opponent, and the React UI.
 - **Simulation:** the AI test suite plays 500 complete games against random fleets. It checks that
   no shot is repeated or off the board, that every game finishes, and that the AI is deterministic.
   A separate one-off run of 2,000 games needed 54.2 shots on average to win (minimum 27, median 55,
-  maximum 66).
+  maximum 66). After the owner asked for a randomised opponent (seeded per game; see the README),
+  the suite checks that the same seed replays the same game, and a new 2,000-game run needed 51.2
+  shots on average (minimum 24, median 52, maximum 67).
 - **Browser checks** (Chromium, scripted with Playwright): placement preview by mouse and keyboard,
   a full battle, the 375 px mobile layout, the production build served by `vite preview` with its
   Content-Security-Policy, no console errors, and no network requests beyond the site's own files.
@@ -70,6 +72,9 @@ correct. No defect has been found in the rules engine or the AI logic so far.
 - **Fix:** the test now expects I10 first, and J9 after I10 is reported as a miss
   (`src/game/ai.test.ts`).
 - **Verification:** the test passes and now also checks the full order of fallback probes.
+- **Later change:** the owner later asked for a randomised opponent, so the fixed probe order was
+  replaced by a random choice among untried neighbours. The test now checks the set of possible
+  probes instead (for J10 after an I10 miss, only J9).
 
 ### 5. (Test defect) Computer-victory test did not guarantee a computer win
 
@@ -86,7 +91,7 @@ correct. No defect has been found in the rules engine or the AI logic so far.
 
 - `npm ci`: clean install from the lockfile.
 - `npm run lint`: 0 warnings, 0 errors.
-- `npm test`: 5 test files, 64 tests passed.
+- `npm test`: 5 test files, 65 tests passed.
 - `npm run build`: type check plus Vite production build, written to `dist/`.
 - Production preview (`npm run preview`) in Chromium: no console errors or CSP violations. The only
   requests were for `index.html`, one JS file, one CSS file, and the favicon.
@@ -98,8 +103,10 @@ correct. No defect has been found in the rules engine or the AI logic so far.
 
 ## Known limitations
 
-- The computer opponent has a single difficulty level. Because it is deterministic, a player who
-  knows the hunt order could place ships to exploit it. That is the trade-off for being explainable.
+- The computer opponent has a single difficulty level. Its hunt and probe choices are random per game
+  (originally a fixed order that a player could learn and exploit), but it always fires on one
+  checkerboard colour and always follows a line of hits, so an experienced player can still
+  anticipate its general strategy.
 - A game in progress is not saved; reloading the page starts a new game.
 - Automated browser checks used Chromium only. Firefox, Safari, and real screen readers (NVDA,
   VoiceOver) have not been tested yet; they are covered by manual cases in `TEST_PLAN.md`.

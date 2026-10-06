@@ -1,22 +1,30 @@
 /**
- * Deterministic computer opponent.
+ * Computer opponent: random, but explainable and repeatable.
  *
  * The AI never sees the player's board. It only knows the squares it has fired at
  * and the ordinary result of each shot: miss, hit, or "sunk <ship name>".
  *
- * Hunt mode: fire down a fixed checkerboard sequence (A1, A3, ... B2, B4, ...).
- *   Every ship is at least two squares long, so each one covers a checkerboard square.
+ * Each game has a seed. Every random choice is derived from that seed and the number of
+ * shots fired so far, so the same seed and the same results always replay the same game.
+ *
+ * Hunt mode: fire at a random untried square of this game's checkerboard colour.
+ *   Every ship is at least two squares long, so each one covers a square of either colour.
  * Target mode: while any hit is not yet explained by a sunk ship,
- *   1. if two or more of those hits line up, extend the line (right/down end first);
- *   2. otherwise probe the squares next to a hit in the order up, right, down, left.
+ *   1. if two or more of those hits line up, extend the line at a random open end;
+ *   2. otherwise probe a random untried square next to the oldest such hit.
  */
 import { BOARD_SIZE, getShipDefinition, ROW_LABELS } from './constants'
 import { formatCoord, fromKey, isInBounds, toKey } from './coords'
+import { pick, seededRandom, type RandomSource } from './random'
 import type { Coord, CoordKey, ShipType, ShotMark, ShotResult } from './types'
 
 export type AiMode = 'hunt' | 'target'
 
+type Parity = 0 | 1
+
 export interface AiState {
+  /** Drives every random choice in this game; the same seed replays the same game. */
+  seed: number
   /** Every square the AI has fired at, with the result it was told. */
   shots: Partial<Record<CoordKey, ShotMark>>
   /** Hits not yet attributed to a sunk ship, oldest first. */
@@ -51,7 +59,7 @@ const PROBE_DIRECTIONS: readonly { name: string; step: Coord }[] = [
   { name: 'left', step: { row: 0, col: -1 } },
 ]
 
-function sequence(parity: 0 | 1): Coord[] {
+function checkerboard(parity: Parity): Coord[] {
   const coords: Coord[] = []
   for (let row = 0; row < BOARD_SIZE; row++) {
     for (let col = 0; col < BOARD_SIZE; col++) {
@@ -61,14 +69,20 @@ function sequence(parity: 0 | 1): Coord[] {
   return coords
 }
 
-/** Fixed hunt order: the checkerboard squares, row by row. */
-export const HUNT_SEQUENCE: readonly Coord[] = sequence(0)
+const CHECKERBOARDS: Record<Parity, readonly Coord[]> = { 0: checkerboard(0), 1: checkerboard(1) }
 
-/** Safety net only; the checkerboard always finds every ship first. */
-const FALLBACK_SEQUENCE: readonly Coord[] = sequence(1)
+export function createAiState(seed = 0): AiState {
+  return { seed: seed >>> 0, shots: {}, unresolvedHits: [] }
+}
 
-export function createAiState(): AiState {
-  return { shots: {}, unresolvedHits: [] }
+/** The checkerboard colour this game hunts on: 0 includes A1, 1 includes A2. */
+export function huntParity(ai: AiState): Parity {
+  return (ai.seed & 1) as Parity
+}
+
+function randomForNextShot(ai: AiState): RandomSource {
+  const shotNumber = Object.keys(ai.shots).length + 1
+  return seededRandom(ai.seed ^ Math.imul(shotNumber, 0x9e3779b9))
 }
 
 function offset(coord: Coord, step: Coord, times = 1): Coord {
@@ -83,6 +97,10 @@ function lineLabel(axis: Axis, coord: Coord): string {
   return axis === 'horizontal' ? `row ${ROW_LABELS[coord.row]}` : `column ${coord.col + 1}`
 }
 
+function fromChoices(count: number, noun: string): string {
+  return count === 1 ? `the only untried ${noun}` : `picked at random from ${count} untried ${noun}s`
+}
+
 /** Contiguous unresolved hits through `coord` along `axis`, ordered top/left first. */
 function runThrough(unresolved: Set<CoordKey>, coord: Coord, axis: Axis): Coord[] {
   const step = AXIS_STEP[axis]
@@ -93,7 +111,8 @@ function runThrough(unresolved: Set<CoordKey>, coord: Coord, axis: Axis): Coord[
   return run
 }
 
-function extendLine(ai: AiState, unresolved: Set<CoordKey>): AiDecision | null {
+function extendLine(ai: AiState, random: RandomSource): AiDecision | null {
+  const unresolved = new Set(ai.unresolvedHits)
   for (const key of ai.unresolvedHits) {
     const hit = fromKey(key)
     for (const axis of AXES) {
@@ -102,60 +121,68 @@ function extendLine(ai: AiState, unresolved: Set<CoordKey>): AiDecision | null {
       const first = run[0]
       const last = run[run.length - 1]
       const step = AXIS_STEP[axis]
-      for (const candidate of [offset(last, step), offset(first, step, -1)]) {
-        if (!isUntried(ai, candidate)) continue
-        return {
-          coord: candidate,
-          mode: 'target',
-          reason:
-            `Hits ${formatCoord(first)}–${formatCoord(last)} line up along ${lineLabel(axis, first)}; ` +
-            `continuing the line at ${formatCoord(candidate)}.`,
-        }
-      }
-    }
-  }
-  return null
-}
-
-function probeNeighbours(ai: AiState): AiDecision | null {
-  for (const key of ai.unresolvedHits) {
-    const hit = fromKey(key)
-    for (const { name, step } of PROBE_DIRECTIONS) {
-      const candidate = offset(hit, step)
-      if (!isUntried(ai, candidate)) continue
+      const ends = [offset(last, step), offset(first, step, -1)].filter((end) => isUntried(ai, end))
+      if (ends.length === 0) continue
+      const candidate = pick(ends, random)
       return {
         coord: candidate,
         mode: 'target',
-        reason: `Unsunk hit at ${formatCoord(hit)}; probing the adjacent square ${formatCoord(candidate)} (${name}).`,
+        reason:
+          `Hits ${formatCoord(first)}–${formatCoord(last)} line up along ${lineLabel(axis, first)}; ` +
+          `continuing the line at ${formatCoord(candidate)} (${fromChoices(ends.length, 'end')}).`,
       }
     }
   }
   return null
 }
 
-function hunt(ai: AiState): AiDecision | null {
-  const index = HUNT_SEQUENCE.findIndex((coord) => isUntried(ai, coord))
-  if (index !== -1) {
-    const coord = HUNT_SEQUENCE[index]
+function probeNeighbours(ai: AiState, random: RandomSource): AiDecision | null {
+  for (const key of ai.unresolvedHits) {
+    const hit = fromKey(key)
+    const options = PROBE_DIRECTIONS.map(({ name, step }) => ({ name, coord: offset(hit, step) })).filter(
+      ({ coord }) => isUntried(ai, coord),
+    )
+    if (options.length === 0) continue
+    const { name, coord } = pick(options, random)
+    return {
+      coord,
+      mode: 'target',
+      reason:
+        `Unsunk hit at ${formatCoord(hit)}; probing the adjacent square ${formatCoord(coord)} (${name}), ` +
+        `${fromChoices(options.length, 'neighbour')}.`,
+    }
+  }
+  return null
+}
+
+function hunt(ai: AiState, random: RandomSource): AiDecision | null {
+  const parity = huntParity(ai)
+  const options = CHECKERBOARDS[parity].filter((coord) => isUntried(ai, coord))
+  if (options.length > 0) {
+    const coord = pick(options, random)
     return {
       coord,
       mode: 'hunt',
-      reason: `No unsunk hits; next square in the checkerboard search is ${formatCoord(coord)} (${index + 1} of ${HUNT_SEQUENCE.length}).`,
+      reason:
+        options.length === 1
+          ? `No unsunk hits; ${formatCoord(coord)} is the only untried checkerboard square.`
+          : `No unsunk hits; picked ${formatCoord(coord)} at random from ${options.length} untried checkerboard squares.`,
     }
   }
-  const fallback = FALLBACK_SEQUENCE.find((coord) => isUntried(ai, coord))
-  if (!fallback) return null
+  const leftovers = CHECKERBOARDS[parity === 0 ? 1 : 0].filter((coord) => isUntried(ai, coord))
+  if (leftovers.length === 0) return null
+  const coord = pick(leftovers, random)
   return {
-    coord: fallback,
+    coord,
     mode: 'hunt',
-    reason: `Checkerboard exhausted; sweeping remaining square ${formatCoord(fallback)}.`,
+    reason: `Checkerboard exhausted; sweeping remaining square ${formatCoord(coord)}.`,
   }
 }
 
 /** Picks the next shot. Always returns a square the AI has never fired at. */
 export function chooseShot(ai: AiState): AiDecision {
-  const unresolved = new Set(ai.unresolvedHits)
-  const decision = extendLine(ai, unresolved) ?? probeNeighbours(ai) ?? hunt(ai)
+  const random = randomForNextShot(ai)
+  const decision = extendLine(ai, random) ?? probeNeighbours(ai, random) ?? hunt(ai, random)
   if (!decision) throw new Error('No untried squares remain')
   return decision
 }
@@ -200,9 +227,9 @@ export function recordShot(ai: AiState, coord: Coord, report: ShotReport): AiSta
 
   const shots = { ...ai.shots, [key]: 'hit' as const }
   const unresolvedHits = [...ai.unresolvedHits, key]
-  if (report.result === 'hit' || !report.sunkShipType) return { shots, unresolvedHits }
+  if (report.result === 'hit' || !report.sunkShipType) return { ...ai, shots, unresolvedHits }
 
   const { length } = getShipDefinition(report.sunkShipType)
   const sunk = new Set(inferSunkCells(unresolvedHits, coord, length))
-  return { shots, unresolvedHits: unresolvedHits.filter((hit) => !sunk.has(hit)) }
+  return { ...ai, shots, unresolvedHits: unresolvedHits.filter((hit) => !sunk.has(hit)) }
 }

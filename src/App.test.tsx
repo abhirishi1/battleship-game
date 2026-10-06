@@ -9,7 +9,7 @@ function setup() {
   // Player's "Randomize" and the computer's fleet both come from createFleet in call order.
   const fleets = [stackedFleet(), columnFleet()]
   let calls = 0
-  render(<App computerDelayMs={0} createFleet={() => fleets[calls++ % fleets.length]} />)
+  render(<App computerDelayMs={0} createFleet={() => fleets[calls++ % fleets.length]} createSeed={() => 1} />)
   return { user }
 }
 
@@ -78,8 +78,11 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Your turn' })).toBeInTheDocument()
 
     await user.click(enemyCell('A1'))
-    expect(await screen.findByText(/Computer fired at A1: hit on your fleet\. Your turn\./)).toBeInTheDocument()
+    expect(await screen.findByText(/Computer fired at [A-J]\d+: (hit on your fleet|miss)\. Your turn\./)).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('You fired at A1: miss.')
+    expect(screen.getByRole('region', { name: "Computer's reasoning" })).toHaveTextContent(
+      /picked [A-J]\d+ at random from 50 untried checkerboard squares/,
+    )
     expect(within(screen.getByRole('region', { name: 'Battle log' })).getAllByRole('listitem')).toHaveLength(2)
   })
 

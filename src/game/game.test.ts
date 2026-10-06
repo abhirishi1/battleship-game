@@ -12,7 +12,7 @@ function battleState(): GameState {
   return run(
     createInitialState(),
     { type: 'setPlayerFleet', board: stackedFleet() },
-    { type: 'startGame', computerBoard: columnFleet() },
+    { type: 'startGame', computerBoard: columnFleet(), aiSeed: 1 },
   )
 }
 
@@ -58,7 +58,7 @@ describe('placement phase', () => {
       origin: { row: 0, col: 0 },
       orientation: 'horizontal',
     })
-    expect(gameReducer(partial, { type: 'startGame', computerBoard: columnFleet() })).toBe(partial)
+    expect(gameReducer(partial, { type: 'startGame', computerBoard: columnFleet(), aiSeed: 1 })).toBe(partial)
     expect(battleState().phase).toBe('battle')
     expect(battleState().turn).toBe('player')
   })
@@ -76,7 +76,7 @@ describe('placement phase', () => {
     expect(gameReducer(state, { type: 'setPlayerFleet', board: overlapping })).toBe(state)
 
     const ready = gameReducer(state, { type: 'setPlayerFleet', board: stackedFleet() })
-    expect(gameReducer(ready, { type: 'startGame', computerBoard: createEmptyBoard() })).toBe(ready)
+    expect(gameReducer(ready, { type: 'startGame', computerBoard: createEmptyBoard(), aiSeed: 1 })).toBe(ready)
   })
 
   it('accepts randomized fleets', () => {
@@ -147,7 +147,7 @@ describe('battle turns', () => {
     let state = run(
       createInitialState(),
       { type: 'setPlayerFleet', board: randomFleet(seededRandom(11)) },
-      { type: 'startGame', computerBoard: randomFleet(seededRandom(12)) },
+      { type: 'startGame', computerBoard: randomFleet(seededRandom(12)), aiSeed: 1 },
     )
     const squares = Array.from({ length: 100 }, (_, i) => ({ row: Math.floor(i / 10), col: i % 10 }))
     for (const coord of squares) {

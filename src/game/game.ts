@@ -42,7 +42,7 @@ export type GameAction =
   | { type: 'placeShip'; shipType: ShipType; origin: Coord; orientation: Orientation }
   | { type: 'setPlayerFleet'; board: Board }
   | { type: 'clearFleet' }
-  | { type: 'startGame'; computerBoard: Board }
+  | { type: 'startGame'; computerBoard: Board; aiSeed: number }
   | { type: 'playerFire'; coord: Coord }
   | { type: 'computerFire' }
   | { type: 'newGame' }
@@ -97,7 +97,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'startGame':
       if (state.phase !== 'placement' || !isFleetComplete(state.player)) return state
       if (!isValidFleet(action.computerBoard)) return state
-      return { ...state, phase: 'battle', turn: 'player', computer: action.computerBoard }
+      return {
+        ...state,
+        phase: 'battle',
+        turn: 'player',
+        computer: action.computerBoard,
+        ai: createAiState(action.aiSeed),
+      }
 
     case 'playerFire': {
       if (state.phase !== 'battle' || state.turn !== 'player') return state
