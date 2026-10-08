@@ -64,9 +64,39 @@ describe('ship placement', () => {
     })
   })
 
-  it('allows ships to touch without overlapping', () => {
+  it('rejects ships that touch side by side, end to end, or at a corner', () => {
     const board = buildBoard([['carrier', { row: 4, col: 2 }, 'horizontal']])
-    expect(placeShip(board, 'battleship', { row: 5, col: 2 }, 'horizontal').ok).toBe(true)
+    const tooClose = { ok: false, reason: 'too-close', conflictsWith: 'carrier' }
+    expect(checkPlacement(board, 'battleship', { row: 5, col: 2 }, 'horizontal')).toMatchObject(tooClose)
+    expect(checkPlacement(board, 'destroyer', { row: 4, col: 7 }, 'horizontal')).toMatchObject(tooClose)
+    expect(checkPlacement(board, 'destroyer', { row: 5, col: 7 }, 'vertical')).toMatchObject(tooClose)
+    expect(checkPlacement(board, 'destroyer', { row: 2, col: 1 }, 'vertical')).toMatchObject(tooClose)
+    expect(placeShip(board, 'battleship', { row: 5, col: 2 }, 'horizontal')).toEqual({ ok: false, reason: 'too-close' })
+  })
+
+  it('accepts ships with at least one square of water between them', () => {
+    const board = buildBoard([['carrier', { row: 4, col: 2 }, 'horizontal']])
+    expect(placeShip(board, 'battleship', { row: 6, col: 2 }, 'horizontal').ok).toBe(true)
+    expect(placeShip(board, 'destroyer', { row: 4, col: 8 }, 'horizontal').ok).toBe(true)
+    expect(placeShip(board, 'destroyer', { row: 6, col: 8 }, 'vertical').ok).toBe(true)
+  })
+
+  it('random fleets never have two ships touching, even at a corner', () => {
+    const random = seededRandom(7)
+    for (let i = 0; i < 2000; i++) {
+      const board = randomFleet(random)
+      expect(board.ships).toHaveLength(5)
+      for (const ship of board.ships) {
+        for (const other of board.ships) {
+          if (other === ship) continue
+          for (const a of ship.cells) {
+            for (const b of other.cells) {
+              expect(Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col))).toBeGreaterThan(1)
+            }
+          }
+        }
+      }
+    }
   })
 
   it('moves a ship when the same type is placed again', () => {

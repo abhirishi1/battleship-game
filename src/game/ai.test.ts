@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { chooseShot, createAiState, huntParity, recordShot, type AiState } from './ai'
-import { allShipsSunk, fireAt, randomFleet, seededRandom } from './board'
+import { allShipsSunk, fireAt, randomFleet, seededRandom, shipCells } from './board'
 import { formatCoord, parseCoord, toKey } from './coords'
-import { buildBoard, columnFleet, stackedFleet } from './testFleets'
-import type { Board, Coord } from './types'
+import { columnFleet, stackedFleet } from './testFleets'
+import type { Board, Coord, Orientation, ShipType } from './types'
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => i + 1)
 
@@ -202,14 +202,18 @@ describe('AI full games', () => {
     expect(total / 500).toBeLessThan(70)
   })
 
-  it('handles ships packed side by side', () => {
-    const board = buildBoard([
-      ['carrier', { row: 3, col: 2 }, 'horizontal'],
-      ['battleship', { row: 4, col: 2 }, 'horizontal'],
-      ['cruiser', { row: 5, col: 2 }, 'horizontal'],
-      ['submarine', { row: 3, col: 7 }, 'vertical'],
-      ['destroyer', { row: 3, col: 8 }, 'vertical'],
-    ])
+  it('still copes with ships packed side by side (no longer a legal layout; kept as a stress test)', () => {
+    const packed: [ShipType, Coord, Orientation, number][] = [
+      ['carrier', { row: 3, col: 2 }, 'horizontal', 5],
+      ['battleship', { row: 4, col: 2 }, 'horizontal', 4],
+      ['cruiser', { row: 5, col: 2 }, 'horizontal', 3],
+      ['submarine', { row: 3, col: 7 }, 'vertical', 3],
+      ['destroyer', { row: 3, col: 8 }, 'vertical', 2],
+    ]
+    const board: Board = {
+      ships: packed.map(([type, origin, orientation, length]) => ({ type, cells: shipCells(origin, orientation, length) })),
+      shots: {},
+    }
     for (const seed of SEEDS.slice(0, 10)) {
       const { shots, ai } = playOut(board, seed)
       expect(new Set(shots.map(toKey)).size).toBe(shots.length)

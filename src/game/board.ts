@@ -27,6 +27,17 @@ export function shipCells(origin: Coord, orientation: Orientation, length: numbe
   )
 }
 
+/** The up to eight squares around `coord`, including diagonals. */
+function surroundingCells({ row, col }: Coord): Coord[] {
+  const cells: Coord[] = []
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr !== 0 || dc !== 0) cells.push({ row: row + dr, col: col + dc })
+    }
+  }
+  return cells.filter(isInBounds)
+}
+
 export function shipAt(board: Board, coord: Coord): Ship | undefined {
   return board.ships.find((ship) => ship.cells.some((cell) => sameCoord(cell, coord)))
 }
@@ -36,8 +47,8 @@ export type PlacementCheck =
   | { ok: false; reason: PlacementError; cells: Coord[]; conflictsWith?: ShipType }
 
 /**
- * Checks whether a ship can go at `origin`. A ship of the same type already on the
- * board is ignored, so re-placing a ship moves it.
+ * Checks whether a ship can go at `origin`. Ships may not overlap or touch, not even at a
+ * corner. A ship of the same type already on the board is ignored, so re-placing a ship moves it.
  */
 export function checkPlacement(
   board: Board,
@@ -52,6 +63,14 @@ export function checkPlacement(
     const occupant = shipAt(board, cell)
     if (occupant && occupant.type !== type) {
       return { ok: false, reason: 'overlap', cells, conflictsWith: occupant.type }
+    }
+  }
+  for (const cell of cells) {
+    for (const neighbour of surroundingCells(cell)) {
+      const occupant = shipAt(board, neighbour)
+      if (occupant && occupant.type !== type) {
+        return { ok: false, reason: 'too-close', cells, conflictsWith: occupant.type }
+      }
     }
   }
   return { ok: true, cells }
@@ -75,11 +94,24 @@ export function isFleetComplete(board: Board): boolean {
   return FLEET.every((definition) => board.ships.some((ship) => ship.type === definition.type))
 }
 
-/** Places the whole fleet at random legal positions. Pass a seeded source for repeatable layouts. */
+const MAX_TRIES_PER_SHIP = 500
+
+/**
+ * Places the whole fleet at random legal positions. Pass a seeded source for repeatable layouts.
+ * If early ships leave no room for a later one, it starts the fleet again.
+ */
 export function randomFleet(random: RandomSource = Math.random): Board {
+  for (;;) {
+    const board = tryRandomFleet(random)
+    if (board) return board
+  }
+}
+
+function tryRandomFleet(random: RandomSource): Board | null {
   let board = createEmptyBoard()
   for (const { type } of FLEET) {
-    for (;;) {
+    let placed = false
+    for (let tries = 0; tries < MAX_TRIES_PER_SHIP && !placed; tries++) {
       const orientation: Orientation = random() < 0.5 ? 'horizontal' : 'vertical'
       const origin = {
         row: Math.floor(random() * BOARD_SIZE),
@@ -88,9 +120,10 @@ export function randomFleet(random: RandomSource = Math.random): Board {
       const result = placeShip(board, type, origin, orientation)
       if (result.ok) {
         board = result.board
-        break
+        placed = true
       }
     }
+    if (!placed) return null
   }
   return board
 }

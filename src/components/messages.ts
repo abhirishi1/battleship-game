@@ -29,5 +29,8 @@ export function describePlacement(type: ShipType, orientation: Orientation, chec
     return `${name} fits ${orientation === 'horizontal' ? 'horizontally' : 'vertically'} at ${first}–${last}.`
   }
   if (check.reason === 'out-of-bounds') return `${name} can't go there: it would run off the board.`
+  if (check.reason === 'too-close') {
+    return `${name} can't go there: it would touch your ${shipName(check.conflictsWith!)}. Leave at least one square of water between ships.`
+  }
   return `${name} can't go there: it would overlap your ${shipName(check.conflictsWith!)}.`
 }

@@ -8,7 +8,7 @@ building and testing it. Nothing has been added to make the list look longer.
 
 How the game was tested:
 
-- **Automated tests** (`npm test`, Vitest + React Testing Library): 71 tests in 6 files. They cover
+- **Automated tests** (`npm test`, Vitest + React Testing Library): 76 tests in 7 files. They cover
   coordinates, placement rules, firing, sinking, victory, turn order and reset, the computer
   opponent, the scoreboard, and the React UI.
 - **Simulation:** the AI test suite plays 500 complete games against random fleets. It checks that
@@ -28,9 +28,9 @@ How the game was tested:
 
 ## Bugs found and fixed
 
-The first three items were defects in the application, found by the automated UI tests or by
-reviewing the running app. Items 4 to 6 were mistakes in the tests themselves; the game code was
-correct. No defect has been found in the rules engine or the AI logic so far.
+Items 1–3 and 7–10 were defects in the application, found by the automated UI tests, by reviewing
+the running app, by the project owner while playing, or in a dedicated bug hunt the owner requested. Items 4 to 6 were mistakes in the tests
+themselves; the game code was correct. No defect has been found in the AI logic so far.
 
 ### 1. Two headings with the same text during placement
 
@@ -100,13 +100,70 @@ correct. No defect has been found in the rules engine or the AI logic so far.
   full-game UI test took about 3.6 seconds, close to the same limit.
 - **Fix:** the test time limit is raised to 15 seconds in `vite.config.ts` (`testTimeout`). The game
   code was correct and is unchanged.
-- **Verification:** all 71 tests pass locally and in CI.
+- **Verification:** all 71 tests passed locally and in CI at the time.
+
+### 7. Touching ships looked like extra ships (reported by the project owner)
+
+- **Symptom:** while playing the live site, the project owner saw what looked like two Battleships
+  (4 squares in a row) in the enemy grid, although the fleet has only one.
+- **Investigation:** 100,000 generated fleets all had exactly one ship of each type, the right
+  lengths, and no shared squares, and three full games on the live site each had exactly one
+  4-square Battleship. So there was no overlap. The rules let ships touch, and the grid draws touching
+  ships as one block. For example, a 3-square ship ending next to the Carrier's side reads as 4 in a
+  row. About 1 in 5 random fleets contained two or more such 4-in-a-row lookalikes.
+- **Root cause:** the placement rule allowed ships to touch, and nothing on screen shows where one ship
+  ends and the next begins.
+- **Fix (rule chosen by the owner):** ships may no longer touch, not even at a corner.
+  `checkPlacement` returns a new `too-close` reason, so manual placement shows "…it would touch your
+  Carrier. Leave at least one square of water between ships." `randomFleet` follows the same rule
+  and starts over if early ships leave no room. The game also checks the computer's fleet with the same
+  rule before a battle starts.
+- **Verification:** new unit tests reject side, end and corner contact and accept a one-square gap;
+  2,000 seeded random fleets are checked to have no touching ships; the UI test checks the new
+  message. All 73 tests pass.
+
+### 8. Status line stuck on "Wait for the computer's shot."
+
+- **Found by:** a bug hunt the project owner requested after item 7, reproduced in the production build
+  in Chromium.
+- **Symptom:** after double-clicking an enemy square (or clicking or pressing Enter twice), the status
+  line showed "Wait for the computer's shot." and stayed that way after the computer had fired. The
+  heading said "Your turn", but the computer's result ("Computer fired at G8: miss.") was never shown
+  in the status line or announced to screen readers until the player fired again.
+- **Root cause:** the second click arrives during the computer's turn and sets a one-off notice. A
+  notice takes priority over the normal announcement, and nothing cleared it when the computer fired.
+- **Fix:** `App.tsx` clears the notice at the moment the computer takes its shot.
+- **Verification:** a new UI test double-clicks a square and expects the computer's result followed
+  by "Your turn." in the status line. It failed before the fix and passes after it.
+
+### 9. Keyboard focus lost after "New game"
+
+- **Found by:** the same bug hunt, in Chromium (focus moved to the page body).
+- **Symptom:** the New game button disappears when pressed, so keyboard and screen-reader users were
+  sent back to the top of the page and had to tab all the way back to the board.
+- **Root cause:** nothing moved focus when the focused button was removed.
+- **Fix:** `Board` takes a `focusRequest` counter; `App` bumps it on New game, so focus moves to square
+  A1 of the player's grid, ready to place the Carrier.
+- **Verification:** the existing win-and-restart UI test now checks that A1 has focus after New game.
+  It failed before the fix and passes after it.
+
+### 10. Enemy ship names missing on hit squares after a defeat
+
+- **Found by:** the same bug hunt, by reading the screen-reader labels of the enemy grid.
+- **Symptom:** after the computer won, enemy squares the player had not hit were labelled with their ship
+  ("Carrier, not found"), but squares of the same unsunk ship that the player had hit said only "hit".
+- **Root cause:** `enemyCellView` hid the ship name on unsunk hits in every phase. That is right during
+  the battle, but not once the fleet is revealed.
+- **Fix:** after the game ends, those squares read "hit, Carrier" (and so on). During the battle they
+  still say only "hit", so nothing leaks.
+- **Verification:** new unit tests in `cellViews.test.ts` check both phases. The game-over test failed
+  before the fix and passes after it.
 
 ## Verification performed
 
 - `npm ci`: clean install from the lockfile.
 - `npm run lint`: 0 warnings, 0 errors.
-- `npm test`: 6 test files, 71 tests passed.
+- `npm test`: 7 test files, 76 tests passed.
 - `npm run build`: type check plus Vite production build, written to `dist/`.
 - Production preview (`npm run preview`) in Chromium: no console errors or CSP violations. The only
   requests were for `index.html`, one JS file, one CSS file, and the favicon.
@@ -126,7 +183,9 @@ correct. No defect has been found in the rules engine or the AI logic so far.
 - The scoreboard is kept in memory only (the owner's choice), so reloading the page resets it to 0.
 - Automated browser checks used Chromium only. Firefox, Safari, and real screen readers (NVDA,
   VoiceOver) have not been tested yet; they are covered by manual cases in `TEST_PLAN.md`.
-- On very narrow screens (under about 340 px), the squares shrink to their minimum size of 26 px.
+- On very narrow screens (under about 340 px), the squares shrink to their minimum size of 26 px. At
+  320 px wide (for example the first iPhone SE) the page scrolls sideways by about 50 px; at 375 px
+  and wider it fits.
 
 ## Use of Devin
 
