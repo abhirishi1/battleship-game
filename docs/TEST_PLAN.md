@@ -30,12 +30,13 @@ says otherwise. Mark each case Pass/Fail and note anything unexpected in `docs/B
 | B3 | Wait about one second. | The computer fires exactly one shot (one new marker on your board and one new log entry); heading returns to "Your turn". |
 | B4 | Click a square you already fired at. | Status says "You already fired at X. Choose another square."; no new shot; the computer does not fire. |
 | B5 | Click quickly on several enemy squares during the computer's turn. | None of them register; the computer still fires once, then it is your turn. |
-| B6 | Watch the *Computer's reasoning* panel during the first turns, then start a new game and compare. | "Hunt mode … picked X at random from N untried checkerboard squares"; all hunt shots in a game are on one checkerboard colour (no two hunt shots side by side); a new game uses a different order. |
-| B7 | After the computer hits one of your ships. | The next reason says "Target mode … probing the adjacent square …"; the shot is directly above/right/below/left of the hit, and the direction varies between games. |
-| B8 | After it hits the same ship twice in a line. | The reason says the hits "line up along row/column …" and it keeps firing along that line, reversing after a miss or the board edge. |
+| B6 | Watch the *Computer's reasoning* panel during the first turns, then start a new game and compare. | "Hunt mode … X fits a ship in N possible ways, the most of any untried square"; the first shot is one of E5, E6, F5, F6, and a new game usually picks a different one or a different order. |
+| B7 | After the computer hits one of your ships. | The next reason says "Target mode … Unsunk hit at X; Y is part of N of the M possible ship positions through it"; the shot is directly above/right/below/left of the hit (never diagonal), favouring the side with more room (e.g. along the edge rather than off it). |
+| B8 | After it hits the same ship twice in a line. | The reason lists both hits ("Unsunk hits at X, Y") and it keeps firing along that line, reversing after a miss or the board edge. |
 | B9 | When a ship is sunk (either side). | The status names the ship ("you sank the computer's Destroyer" / "it sank your Cruiser"); the fleet list marks it Sunk; its squares turn dark red. A plain hit never names the ship. |
 | B10 | Throughout a full game. | No square on either board is ever fired at twice (check the log and the boards). |
 | B11 | During your turn, double-click an untried enemy square. | One shot is fired; after the computer replies, the status line shows its result and "Your turn." (it does not stay on "Wait for the computer's shot."). |
+| B12 | After the computer sinks one of your ships, keep playing. | It never fires at any of the squares around that ship (including corners); the reasoning may say "N untried squares can't hold any ship and are skipped". |
 
 ## Game over and restart
 

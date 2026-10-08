@@ -68,9 +68,7 @@ export function Board({
   }, [focusOnMount])
 
   useEffect(() => {
-    if (!focusRequest) return
-    setActive({ row: 0, col: 0 })
-    cellRefs.current.get('0,0')?.focus()
+    if (focusRequest) cellRefs.current.get('0,0')?.focus()
   }, [focusRequest])
 
   function focusCell(coord: Coord) {

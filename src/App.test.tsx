@@ -100,7 +100,7 @@ describe('App', () => {
     expect(await screen.findByText(/Computer fired at [A-J]\d+: (hit on your fleet|miss)\. Your turn\./)).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('You fired at A1: miss.')
     expect(screen.getByRole('region', { name: "Computer's reasoning" })).toHaveTextContent(
-      /picked [A-J]\d+ at random from 50 untried checkerboard squares/,
+      /fits a ship in \d+ possible ways, the most of any untried square/,
     )
     expect(within(screen.getByRole('region', { name: 'Battle log' })).getAllByRole('listitem')).toHaveLength(2)
   })

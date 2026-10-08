@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chooseShot, createAiState, huntParity, recordShot, type AiState } from './ai'
+import { chooseShot, countShipPositions, createAiState, recordShot, type AiState, type ShotReport } from './ai'
 import { allShipsSunk, fireAt, randomFleet, seededRandom, shipCells } from './board'
 import { formatCoord, parseCoord, toKey } from './coords'
 import { columnFleet, stackedFleet } from './testFleets'
@@ -56,126 +56,110 @@ function huntOrder(seed: number, count: number): string[] {
   return labels
 }
 
-describe('AI hunt mode', () => {
-  it('fires only at untried squares of one checkerboard colour, covering all 50 before anything else', () => {
-    for (const seed of SEEDS.slice(0, 10)) {
-      let ai = createAiState(seed)
-      const parity = huntParity(ai)
-      const seen = new Set<string>()
-      for (let i = 0; i < 50; i++) {
-        const decision = chooseShot(ai)
-        expect(decision.mode).toBe('hunt')
-        expect((decision.coord.row + decision.coord.col) % 2).toBe(parity)
-        seen.add(toKey(decision.coord))
-        ai = recordShot(ai, decision.coord, { result: 'miss' })
-      }
-      expect(seen.size).toBe(50)
-      const sweep = chooseShot(ai)
-      expect((sweep.coord.row + sweep.coord.col) % 2).not.toBe(parity)
-      expect(sweep.reason).toMatch(/Checkerboard exhausted/)
-    }
+/** Heat-map score of a square. */
+function score(ai: AiState, label: string): number {
+  const { row, col } = at(label)
+  return countShipPositions(ai).counts[row][col]
+}
+
+describe('AI hunt mode (heat map)', () => {
+  it('scores each square by how many ship positions could cover it', () => {
+    const fresh = createAiState(1)
+    // A corner fits each of the 5 ships in 2 ways (across and down); a centre square fits 34.
+    expect(score(fresh, 'A1')).toBe(10)
+    expect(score(fresh, 'E5')).toBe(34)
+    expect(score(fresh, 'D5')).toBe(33)
   })
 
-  it('hunts on either checkerboard colour depending on the game', () => {
-    expect(new Set(SEEDS.map((seed) => huntParity(createAiState(seed))))).toEqual(new Set([0, 1]))
+  it('opens on one of the most likely squares, chosen at random', () => {
+    expect(choicesAfter([])).toEqual(['E5', 'E6', 'F5', 'F6'])
+    expect(chooseShot(createAiState(3)).reason).toMatch(
+      /^No unsunk hits; (E5|E6|F5|F6) fits a ship in 34 possible ways, the most of any untried square \(picked at random from 4 equally likely squares\)\.$/,
+    )
   })
 
   it('varies the hunt order between games but replays it exactly for the same seed', () => {
     expect(huntOrder(5, 15)).toEqual(huntOrder(5, 15))
     expect(huntOrder(5, 15)).not.toEqual(huntOrder(7, 15))
-    const openingShots = new Set(SEEDS.map((seed) => huntOrder(seed, 1)[0]))
-    expect(openingShots.size).toBeGreaterThan(15)
   })
 
-  it('explains each choice', () => {
-    expect(chooseShot(createAiState(3)).reason).toMatch(
-      /^No unsunk hits; picked [A-J]\d+ at random from 50 untried checkerboard squares\.$/,
-    )
-  })
-})
-
-describe('AI target mode', () => {
-  it('switches from hunt to target mode after a hit and probes an adjacent square', () => {
-    expect(chooseShot(createAiState(1)).mode).toBe('hunt')
-    const decision = chooseShot(aiAfter([['E5', 'hit']]))
-    expect(decision.mode).toBe('target')
-    expect(['D5', 'E6', 'F5', 'E4']).toContain(formatCoord(decision.coord))
-    expect(decision.reason).toMatch(/Unsunk hit at E5.*picked at random from 4 untried neighbours/)
+  it('skips a square boxed in by misses, because no ship fits there', () => {
+    const boxed: Report[] = [['D5', 'miss'], ['F5', 'miss'], ['E4', 'miss'], ['E6', 'miss']]
+    const ai = aiAfter(boxed)
+    expect(score(ai, 'E5')).toBe(0)
+    expect(choicesAfter(boxed)).not.toContain('E5')
+    expect(chooseShot(ai).reason).toMatch(/1 untried square can't hold any ship and is skipped\./)
   })
 
-  it('switches modes during a real game: the shot after the first hit is orthogonally adjacent', () => {
-    const board = stackedFleet()
-    for (const seed of SEEDS.slice(0, 10)) {
-      let ai = createAiState(seed)
-      for (;;) {
+  it('never fires next to a sunk ship (ships cannot touch)', () => {
+    const ring = ['D4', 'D5', 'D6', 'D7', 'E4', 'E7', 'F4', 'F5', 'F6', 'F7']
+    for (const seed of SEEDS) {
+      let ai = recordShot(aiAfter([['E5', 'hit']], seed), at('E6'), { result: 'sunk', sunkShipType: 'destroyer' })
+      expect(ai.unresolvedHits).toEqual([])
+      for (const label of ring) expect(score(ai, label)).toBe(0)
+      for (let i = 0; i < 20; i++) {
         const decision = chooseShot(ai)
         expect(decision.mode).toBe('hunt')
-        const outcome = fireAt(board, decision.coord)
-        if (!outcome.ok) throw new Error('illegal')
-        ai = recordShot(ai, decision.coord, { result: outcome.result })
-        if (outcome.result === 'hit') {
-          const next = chooseShot(ai)
-          expect(next.mode).toBe('target')
-          const distance =
-            Math.abs(next.coord.row - decision.coord.row) + Math.abs(next.coord.col - decision.coord.col)
-          expect(distance).toBe(1)
-          break
-        }
+        expect(ring).not.toContain(formatCoord(decision.coord))
+        ai = recordShot(ai, decision.coord, { result: 'miss' })
       }
     }
   })
 
-  it('probes neighbours in a random order, only ever choosing untried on-board squares', () => {
+  it('stops counting a ship once it is sunk', () => {
+    // Only 2-square positions can fit between these misses; once the Destroyer is sunk, none can.
+    const gap: Report[] = [['A3', 'miss'], ['B1', 'miss'], ['B2', 'miss']]
+    expect(score(aiAfter(gap), 'A1')).toBe(1)
+    const destroyerSunk = recordShot(aiAfter([['J9', 'hit']]), at('J10'), { result: 'sunk', sunkShipType: 'destroyer' })
+    const afterSink = gap.reduce((ai, [label, result]) => recordShot(ai, at(label), { result }), destroyerSunk)
+    expect(score(afterSink, 'A1')).toBe(0)
+  })
+})
+
+describe('AI target mode (heat map through unsunk hits)', () => {
+  it('switches to target mode after a hit and fires only at orthogonal neighbours', () => {
+    expect(chooseShot(createAiState(1)).mode).toBe('hunt')
+    const ai = aiAfter([['E5', 'hit']])
+    expect(chooseShot(ai).mode).toBe('target')
     expect(choicesAfter([['E5', 'hit']])).toEqual(['D5', 'E4', 'E6', 'F5'])
-    expect(choicesAfter([['E5', 'hit'], ['D5', 'miss'], ['E6', 'miss']])).toEqual(['E4', 'F5'])
-    expect(choicesAfter([['E5', 'hit'], ['D5', 'miss'], ['E6', 'miss'], ['F5', 'miss']])).toEqual(['E4'])
-    expect(chooseShot(aiAfter([['E5', 'hit'], ['D5', 'miss'], ['E6', 'miss'], ['F5', 'miss']])).reason).toMatch(
-      /the only untried neighbour/,
-    )
-    expect(choicesAfter([['A1', 'hit']])).toEqual(['A2', 'B1'])
-    expect(choicesAfter([['J10', 'hit'], ['I10', 'miss']])).toEqual(['J9'])
+    // Diagonal neighbours of a hit can never hold a ship: a different ship would touch it.
+    for (const label of ['D4', 'D6', 'F4', 'F6']) expect(score(ai, label)).toBe(0)
   })
 
-  it('continues along a row after two horizontal hits, then reverses at a miss', () => {
+  it('prefers the direction with more room for a ship', () => {
+    // From E1 only one position per ship runs right (to E2), but many run up or down.
+    expect(choicesAfter([['E1', 'hit']])).toEqual(['D1', 'F1'])
+    expect(chooseShot(aiAfter([['E1', 'hit']])).reason).toMatch(
+      /^Unsunk hit at E1; [DF]1 is part of 12 of the 22 possible ship positions through it, the most of any square \(picked at random from 2 equally likely squares\)\.$/,
+    )
+  })
+
+  it('continues along a row after two hits, then reverses at a miss', () => {
     const twoHits: Report[] = [['E5', 'hit'], ['D5', 'miss'], ['E6', 'hit']]
     expect(choicesAfter(twoHits)).toEqual(['E4', 'E7'])
-    expect(chooseShot(aiAfter(twoHits)).reason).toMatch(/row E/)
+    expect(chooseShot(aiAfter(twoHits)).reason).toMatch(/^Unsunk hits at E5, E6; /)
     expect(choicesAfter([...twoHits, ['E7', 'miss']])).toEqual(['E4'])
   })
 
   it('reverses along a column when the line reaches the board edge', () => {
     expect(choicesAfter([['I3', 'hit'], ['J3', 'hit']])).toEqual(['H3'])
-    expect(chooseShot(aiAfter([['I3', 'hit'], ['J3', 'hit']])).reason).toMatch(/column 3.*the only untried end/)
-  })
-
-  it('falls back to probing neighbours when both ends of a line are blocked', () => {
-    const blocked: Report[] = [['I3', 'hit'], ['H3', 'miss'], ['I4', 'miss'], ['J3', 'hit']]
-    expect(choicesAfter(blocked)).toEqual(['I2'])
-    expect(chooseShot(aiAfter(blocked)).mode).toBe('target')
-  })
-
-  it('extends a vertical line in both directions', () => {
-    const twoHits: Report[] = [['C3', 'hit'], ['B3', 'hit']]
-    expect(choicesAfter(twoHits)).toEqual(['A3', 'D3'])
-    expect(choicesAfter([...twoHits, ['D3', 'miss']])).toEqual(['A3'])
-    expect(chooseShot(aiAfter([...twoHits, ['D3', 'miss']])).reason).toMatch(/column 3/)
   })
 
   it('returns to hunt mode once the hit ship is sunk', () => {
     let ai = aiAfter([['E5', 'hit'], ['D5', 'miss']])
     ai = recordShot(ai, at('E6'), { result: 'sunk', sunkShipType: 'destroyer' })
     expect(ai.unresolvedHits).toEqual([])
+    expect(ai.sunkShips).toEqual(['destroyer'])
     expect(chooseShot(ai).mode).toBe('hunt')
   })
 
-  it('keeps targeting leftover hits that belong to a different ship', () => {
-    // E5 and E6 are hits on two different vertical ships; the destroyer E6/F6 sinks first.
-    let ai = aiAfter([['E5', 'hit'], ['D5', 'miss'], ['E6', 'hit']])
-    ai = recordShot(ai, at('E7'), { result: 'miss' })
-    ai = recordShot(ai, at('E4'), { result: 'miss' })
-    ai = recordShot(ai, at('F6'), { result: 'sunk', sunkShipType: 'destroyer' })
-    expect(ai.unresolvedHits).toEqual([toKey(at('E5'))])
-    expect(chooseShot(ai).mode).toBe('target')
+  it('keeps targeting a leftover hit on a different ship', () => {
+    let ai = aiAfter([['C3', 'hit'], ['G7', 'hit']])
+    ai = recordShot(ai, at('G8'), { result: 'sunk', sunkShipType: 'destroyer' })
+    expect(ai.unresolvedHits).toEqual([toKey(at('C3'))])
+    const decision = chooseShot(ai)
+    expect(decision.mode).toBe('target')
+    expect(['B3', 'C2', 'C4', 'D3']).toContain(formatCoord(decision.coord))
   })
 })
 
@@ -198,8 +182,8 @@ describe('AI full games', () => {
       expect(shots.length).toBeLessThanOrEqual(100)
       total += shots.length
     }
-    // Hunt/target should do far better than random firing (~96 shots on average).
-    expect(total / 500).toBeLessThan(70)
+    // The heat map should do far better than random firing (~96 shots on average).
+    expect(total / 500).toBeLessThan(45)
   })
 
   it('still copes with ships packed side by side (no longer a legal layout; kept as a stress test)', () => {
@@ -240,7 +224,7 @@ describe('AI full games', () => {
         const b = fireAt(boardB, decisionA.coord)
         if (!a.ok || !b.ok) throw new Error('illegal')
         if (a.result !== b.result || a.shipType !== b.shipType) break
-        const report = { result: a.result, sunkShipType: a.result === 'sunk' ? a.shipType : undefined }
+        const report: ShotReport = { result: a.result, sunkShipType: a.result === 'sunk' ? a.shipType : undefined }
         aiA = recordShot(aiA, decisionA.coord, report)
         aiB = recordShot(aiB, decisionA.coord, report)
         boardA = a.board
